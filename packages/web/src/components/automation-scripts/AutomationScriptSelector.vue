@@ -64,6 +64,8 @@
 					</span>
 				</div>
 			</template>
+			<!-- 底部操作插槽透传：与 CommonSelector 确认按钮同一行 -->
+			<template #actions><slot name="actions" /></template>
 		</CommonSelector>
 	</div>
 </template>

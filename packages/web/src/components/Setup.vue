@@ -172,21 +172,24 @@
 			:closable="false"
 		>
 			<template #title> 选择自动化程序 </template>
-			<div class="d-flex justify-content-between align-items-center mb-2">
+			<div class="mb-2">
 				<span style="font-size: 12px">请选择需要添加到新建浏览器的自动化程序</span>
-				<a-button
-					size="mini"
-					type="text"
-					@click="skipScriptSelector"
-				>
-					跳过此步骤
-				</a-button>
 			</div>
 			<AutomationScriptSelector
 				:automation-scripts="[]"
 				style="max-height: 60vh; overflow: overlay"
 				@confirm="onSelectorConfirm"
-			></AutomationScriptSelector>
+			>
+				<template #actions>
+					<a-button
+						size="small"
+						type="text"
+						@click="skipScriptSelector"
+					>
+						跳过此步骤
+					</a-button>
+				</template>
+			</AutomationScriptSelector>
 		</a-modal>
 
 		<!-- 自动化程序配置弹窗 -->
@@ -243,6 +246,8 @@ import { Browser } from '../fs/browser';
 import AutomationScriptSelector from './automation-scripts/AutomationScriptSelector.vue';
 import AutomationScriptList from './automation-scripts/AutomationScriptList.vue';
 import type { RawAutomationScript } from './automation-scripts';
+import { useEnvironmentDetect } from '../composables/useEnvironmentDetect';
+const { updateEnvironmentDetect } = useEnvironmentDetect();
 
 type Step = {
 	title: string;
@@ -496,6 +501,12 @@ const _preset_steps = {
 			step.description = `正在安装默认脚本：` + default_user_script.name;
 			await addScriptFromUrl(default_user_script.url);
 			step.description = `已安装用户脚本：${default_user_script.name} - ${default_user_script.url}`;
+		}
+	} as Step,
+	update_env: {
+		title: '更新环境',
+		async action() {
+			await updateEnvironmentDetect();
 		}
 	} as Step
 };

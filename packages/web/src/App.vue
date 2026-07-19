@@ -36,7 +36,15 @@
 			<!-- 全局：一键安装 -->
 			<Setup
 				v-model:visible="store.render.state.setup"
-				:preset-steps="['show_desc', 'init_env', 'init_extensions', 'init_script']"
+				:preset-steps="[
+					'show_desc',
+					'init_env',
+					'new_browser',
+					'init_automationScript',
+					'init_extensions',
+					'init_script',
+					'update_env'
+				]"
 			></Setup>
 
 			<!-- 全局：新建浏览器自动初始化 -->
@@ -121,11 +129,6 @@ onMounted(async () => {
 	setAutoLaunch();
 	setAlwaysOnTop();
 	changeTheme().catch(console.error);
-
-	/** 打开关于软件 */
-	if (store.render.state.first) {
-		about().catch(console.error);
-	}
 
 	/** 监听屏幕变化 */
 	onResize();

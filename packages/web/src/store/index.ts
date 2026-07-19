@@ -77,8 +77,6 @@ export type WebStore = {
 
 	langs: Record<string, string>;
 	state: {
-		/** 是否第一次打开 */
-		first: boolean;
 		/** 是否展示初始化设置  */
 		setup: boolean;
 		/** 是否展示「新建浏览器自动初始化」弹窗 */

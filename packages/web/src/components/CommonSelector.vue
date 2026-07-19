@@ -64,6 +64,8 @@
 								</template>
 							</a-button>
 						</a-tooltip>
+						<!-- 底部操作插槽：与确认按钮同一行，用于放置额外按钮（如“跳过该步骤”） -->
+						<slot name="actions" />
 						<a-button
 							style="width: 100px"
 							type="primary"
