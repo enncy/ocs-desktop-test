@@ -8,6 +8,7 @@ import { getDecryptedRenderData } from '../crypto';
 import { getCurrentWebContents, getProjectPath, moveWindowToTop } from '../utils';
 import { canOCR, det, ocr } from '../utils/ocr';
 import { randomUUID } from 'crypto';
+import { getInitStatus } from './init.status';
 const logger = Logger('server');
 
 /** 图标内存缓存 */
@@ -154,6 +155,11 @@ export async function startupServer() {
 			public: path.join(getProjectPath(), './public'),
 			project: getProjectPath()
 		});
+	});
+
+	/** 应用启动初始化状态（供 loading 闪屏页轮询） */
+	app.get('/api/init/status', (req, res) => {
+		res.json(getInitStatus());
 	});
 
 	app.get('/ocs-global-setting', (req, res) => {
