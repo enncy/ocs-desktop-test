@@ -90,6 +90,13 @@ export type WebStore = {
 			browser_usage: boolean;
 			automation_script_usage: boolean;
 		};
+		/** 新手使用指引完成记录（达成一次即永久标记） */
+		guide: {
+			/** 步骤1：软件设置/浏览器环境就绪 */
+			init: boolean;
+			/** 步骤2：成功启动浏览器 */
+			launch: boolean;
+		};
 	};
 };
 

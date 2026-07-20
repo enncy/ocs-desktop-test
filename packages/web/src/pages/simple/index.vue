@@ -45,13 +45,7 @@
 					<!-- Banner 提示 -->
 					<NotificationBanner class="mb-3" />
 
-					<UsageAlertCollapse
-						v-model:collapse="store.render.state.read_record.browser_usage"
-						class="mb-2"
-						banner
-						title="使用提示"
-						:html="lang('simple_mode_index_browser_usage', '启动浏览器、打开任意网课后即可自动执行脚本。')"
-					/>
+					<BeginnerGuide class="mb-2" />
 
 					<div class="cards-area entities">
 						<template v-if="allBrowsers.length === 0">
@@ -192,8 +186,7 @@ import { BrowserOptions } from '../../fs/interface';
 import { newBrowserOrInit } from '../../utils/browser';
 import EmptyBrowserCard from '../../components/EmptyBrowserCard.vue';
 import SettingPanel from '../../components/SettingPanel.vue';
-import { lang } from '../../store/index';
-import UsageAlertCollapse from '../../components/UsageAlertCollapse.vue';
+import BeginnerGuide from '../../components/BeginnerGuide.vue';
 import UserScriptListPage from '../../components/UserScriptListPage.vue';
 import EnvironmentAlert from '../../components/EnvironmentAlert.vue';
 import NotificationBanner from '../../components/NotificationBanner.vue';
