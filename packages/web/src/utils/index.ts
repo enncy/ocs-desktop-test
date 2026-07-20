@@ -222,7 +222,6 @@ function installListener(name: string, channel: string, rate: number, chunkLengt
 
 /** 显示关于软件说明 */
 export async function about() {
-	store.render.state.first = false;
 	const guide = await remote.methods.call('get', 'https://cdn.ocsjs.com/articles/app/guide.md');
 	Modal.info({
 		title: '软件使用教程',

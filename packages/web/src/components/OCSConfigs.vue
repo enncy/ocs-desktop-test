@@ -105,26 +105,11 @@ state.watchStopHandle = watch(store, () => {
 let wrapper = null as HTMLElement | null;
 let root = null as ShadowRoot | null;
 
-/** 设置手风琴效果：同时只能打开一个 detail */
-function setupAccordion(detailsList: HTMLDetailsElement[]) {
-	for (const details of detailsList) {
-		details.addEventListener('toggle', () => {
-			if (details.open) {
-				for (const other of detailsList) {
-					if (other !== details && other.open) {
-						other.removeAttribute('open');
-					}
-				}
-			}
-		});
-	}
-}
-
 function renderOCS() {
 	if (!root || !wrapper) return;
 	// @ts-ignore
 	const EUS = global.EUS as typeof import('easy-us');
-	const { definedCustomElements, h, $, $ui, $store } = EUS;
+	const { definedCustomElements, h, $, $ui, $store, $modal } = EUS;
 
 	try {
 		const project = state.projects.find((p) => p.name === Store.render.setting.ocs.currentProjectName);
@@ -139,27 +124,54 @@ function renderOCS() {
 		/** 删除阴影 */
 		root.append(h('style', `script-panel-element {box-shadow: none;resize: none;color:#2e2e2e}`));
 
-		/** details / summary 样式 */
+		/** 列表样式 */
 		root.append(
 			h(
 				'style',
 				[
-					'details { margin: 0 0 8px 0; border-radius: 8px; border: 1px solid #e5e6eb; background: #fafafa; overflow: hidden; transition: all 0.2s ease; }',
-					'details:hover { border-color: #c9cdd4; }',
-					'details[open] { border-color: #165dff; background: #fff; box-shadow: 0 2px 12px rgba(22,93,255,0.08); }',
-					'summary { padding: 10px 14px; font-weight: 600; font-size: 13px; color: #1d2129; cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; user-select: none; outline: none; background: transparent; transition: background 0.15s; border-radius: 8px; }',
-					'summary::-webkit-details-marker { display: none; }',
-					'summary::after { content: ""; width: 6px; height: 6px; border-right: 1.5px solid #86909c; border-bottom: 1.5px solid #86909c; transform: rotate(-45deg); transition: transform 0.25s ease, margin-top 0.25s ease; margin-top: -2px; flex-shrink: 0; margin-left: 8px; }',
-					'details[open] > summary::after { transform: rotate(45deg); margin-top: 2px; border-color: #165dff; }',
-					'details[open] > summary { color: #165dff; background: rgba(22,93,255,0.04); }',
-					'summary:hover { background: rgba(0,0,0,0.02); }'
+					'.ocs-list { display: flex; flex-direction: column; gap: 6px; }',
+					'.ocs-list-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; border: 1px solid #eceef1; background: #fff; cursor: pointer; user-select: none; transition: all 0.2s ease; }',
+					'.ocs-list-item:hover { border-color: #165dff; box-shadow: 0 4px 14px rgba(22,93,255,0.12); transform: translateY(-1px); }',
+					'.ocs-list-item:active { transform: translateY(0); }',
+					'.ocs-list-item-name { flex: 1; font-weight: 600; font-size: 13px; color: #1d2129; }',
+					'.ocs-list-item-arrow { width: 7px; height: 7px; border-right: 2px solid #c9cdd4; border-bottom: 2px solid #c9cdd4; transform: rotate(-45deg); transition: transform 0.2s, border-color 0.2s; flex-shrink: 0; }',
+					'.ocs-list-item:hover .ocs-list-item-arrow { transform: rotate(-45deg) translate(2px, -2px); border-color: #165dff; }'
 				].join('\n')
 			)
 		);
 
+		/** 弹窗内容自适应，最大 800px；隐藏标题（脚本面板自带 header，避免重复） */
+		root.append(
+			h(
+				'style',
+				[
+					'modal-element { width: fit-content !important; max-width: 800px !important; }',
+					'.modal-body { max-width: 800px; }',
+					'.modal-title { display: none; }'
+				].join('\n')
+			)
+		);
+
+		const list = h('div', { className: 'ocs-list' });
+		/** panel 缓存：key -> { script, name, panel, rendered }，onrender 首次打开时执行 */
+		const panelCache = new Map<string, { script: any; name: string; panel: HTMLElement; rendered: boolean }>();
+
+		/** 使用 OCS/EUS 内置 $modal 弹窗展示配置面板（挂载到 shadow root，保证样式生效） */
+		const openModal = (key: string) => {
+			const entry = panelCache.get(key);
+			if (!entry) return;
+			$modal.simple({ content: entry.panel, maskCloseable: true }, root);
+			if (!entry.rendered) {
+				entry.rendered = true;
+				try {
+					entry.script.onrender?.({ panel: entry.panel, header: h('header-element') });
+				} catch (err) {
+					console.error(err);
+				}
+			}
+		};
+
 		if (project) {
-			const detailsList: HTMLDetailsElement[] = [];
-			let i = 0;
 			for (const key in project.scripts) {
 				if (Object.prototype.hasOwnProperty.call(project.scripts, key)) {
 					const script = project.scripts[key];
@@ -178,29 +190,25 @@ function renderOCS() {
 						Object.keys(otherConfigs).filter((k) => otherConfigs[k].label !== undefined).length &&
 						script.hideInPanel !== false
 					) {
-						const details = h('details', { open: i === 0 });
 						const panel = $ui.scriptPanel(script, $store);
-						details.append(h('summary', panel.name || '未知脚本'));
-						details.append(panel);
-						/** 添加到页面中，并执行 onrender 函数 */
-						root.append(details);
-						detailsList.push(details);
-						i++;
-						try {
-							script.onrender?.({ panel, header: h('header-element') });
-						} catch (err) {
-							console.error(err);
-						}
+						const name = panel.name || '未知脚本';
+						const cacheKey = script.namespace || key;
+						panelCache.set(cacheKey, { script, name, panel, rendered: false });
+
+						const item = h('div', { className: 'ocs-list-item' });
+						item.append(h('span', { className: 'ocs-list-item-name' }, name));
+						item.append(h('span', { className: 'ocs-list-item-arrow' }));
+						item.addEventListener('click', () => openModal(cacheKey));
+						list.append(item);
 					}
 				}
 			}
-
-			/** 初始化手风琴效果 */
-			setupAccordion(detailsList);
-
-			/** 挂载 ocs panel */
-			document.querySelector('#ocs-browser-configs')?.replaceChildren(wrapper);
 		}
+
+		root.append(list);
+
+		/** 挂载 ocs panel */
+		document.querySelector('#ocs-browser-configs')?.replaceChildren(wrapper);
 	} catch (err) {
 		state.err = String(err);
 		console.error(err);
@@ -251,7 +259,9 @@ async function loadOCS() {
 		state.projects = OCS.definedProjects();
 		emits('update:project', state.projects as Project[]);
 		if (!Store.render.setting.ocs.currentProjectName) {
-			Store.render.setting.ocs.currentProjectName = state.projects[0].name;
+			// 默认打开 pin_projects（如「通用」），找不到则回退到首个项目
+			const preferred = state.projects.find((p) => p.name === state.pin_projects);
+			Store.render.setting.ocs.currentProjectName = (preferred || state.projects[0]).name;
 		}
 	} catch (err) {
 		state.err = String(err);

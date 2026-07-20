@@ -100,77 +100,87 @@ export type WebStore = {
 	};
 };
 
-const _store: AppStore & { render: WebStore } = defaultsDeep(remote['electron-store'].get('store'), {
-	render: {
-		scripts: [],
-		notifies: [],
-		browser: {
-			currentFolderUid: '',
-			currentBrowserUid: '',
-			root: {
-				name: '根目录',
-				parent: undefined,
-				createTime: Date.now(),
-				type: 'root',
-				uid: 'root-folder',
-				children: {},
-				renaming: false
-			},
-			tags: {},
-			search: {
-				value: '',
-				tags: [],
-				results: undefined
-			}
+/** 渲染进程数据的默认值。用于：
+ * 1) 首次加载时与磁盘 store 做 defaultsDeep 合并；
+ * 2) 解密后的 render 对象再做一次 defaultsDeep，补齐后续版本新增的字段（如 state.guide）。
+ *    必须复用同一份，避免新增字段时漏补导致渲染端读取 undefined。 */
+const DEFAULT_RENDER = {
+	scripts: [],
+	notifies: [],
+	browser: {
+		currentFolderUid: '',
+		currentBrowserUid: '',
+		root: {
+			name: '根目录',
+			parent: undefined,
+			createTime: Date.now(),
+			type: 'root',
+			uid: 'root-folder',
+			children: {},
+			renaming: false
 		},
-		dashboard: {
-			details: {
-				tags: false,
-				notes: false
-			},
-			num: 4,
-			video: {
-				aspectRatio: 0
-			}
-		},
-		setting: {
-			browserType: 'diy',
-			mode: 'simple' as const,
-			showSideBarText: true,
-			launchOptions: {
-				custom: false,
-				executablePath: ''
-			},
-			theme: {
-				dark: false
-			},
-			ocs: {
-				currentProjectName: '',
-				store: {},
-				openSync: false
-			},
-			browser: {
-				cachesSizeWarningPoint: 10,
-				enableDialog: false,
-				forceUpdateScript: false,
-				autoInitNewBrowser: true
-			}
-		},
-		langs: {},
-		state: {
-			first: true,
-			setup: true,
-			newBrowserSetup: false,
-			mini: false,
-			responsive: 'small',
-			height: document.documentElement.clientHeight,
-			read_record: {
-				user_script_usage: false,
-				browser_usage: false,
-				automation_script_usage: false
-			}
+		tags: {},
+		search: {
+			value: '',
+			tags: [],
+			results: undefined
 		}
-	} as WebStore
+	},
+	dashboard: {
+		details: {
+			tags: false,
+			notes: false
+		},
+		num: 4,
+		video: {
+			aspectRatio: 0
+		}
+	},
+	setting: {
+		browserType: 'diy',
+		mode: 'simple' as const,
+		showSideBarText: true,
+		launchOptions: {
+			custom: false,
+			executablePath: ''
+		},
+		theme: {
+			dark: false
+		},
+		ocs: {
+			currentProjectName: '',
+			store: {},
+			openSync: false
+		},
+		browser: {
+			cachesSizeWarningPoint: 10,
+			enableDialog: false,
+			forceUpdateScript: false,
+			autoInitNewBrowser: true
+		}
+	},
+	langs: {},
+	state: {
+		first: true,
+		setup: true,
+		newBrowserSetup: false,
+		mini: false,
+		responsive: 'small',
+		height: document.documentElement.clientHeight,
+		read_record: {
+			user_script_usage: false,
+			browser_usage: false,
+			automation_script_usage: false
+		},
+		guide: {
+			init: false,
+			launch: false
+		}
+	}
+} as WebStore;
+
+const _store: AppStore & { render: WebStore } = defaultsDeep(remote['electron-store'].get('store'), {
+	render: DEFAULT_RENDER
 });
 
 // 解密数据（兼容新旧加密格式）
@@ -181,7 +191,9 @@ if (typeof _store.render === 'string') {
 		// @ts-ignore
 		const renderStr = _store.render as string;
 		const data = JSON.parse(remote.methods.callSync('decryptRenderString' as any, renderStr));
-		Reflect.set(_store, 'render', data);
+		// 解密后的 render 是历史持久化对象，可能缺少后续版本新增的字段，
+		// 再次与默认值合并以补齐（如 state.guide），避免渲染端读取 undefined。
+		Reflect.set(_store, 'render', defaultsDeep(data, DEFAULT_RENDER));
 	} catch (e) {
 		console.error('数据解密失败：' + e);
 	}
