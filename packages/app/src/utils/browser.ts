@@ -51,5 +51,7 @@ export function getExtensionPaths(extensionsFolder: string) {
 		.readdirSync(extensionsFolder)
 		.filter((f) => f !== '.DS_Store')
 		.filter((f) => !f.endsWith('.zip'))
-		.map((file) => path.join(extensionsFolder, file));
+		.map((file) => path.join(extensionsFolder, file))
+		// 只保留真正的 Chrome 扩展（目录且含 manifest.json），跳过 OCR 等非扩展文件夹
+		.filter((p) => fs.statSync(p).isDirectory() && fs.existsSync(path.join(p, 'manifest.json')));
 }

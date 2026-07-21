@@ -86,19 +86,25 @@ export const Environment = {
 		const installed_extension = extensions.find((e) => e.installed);
 		if (!installed_extension) return;
 
-		const manifest = JSON.parse(
-			String(
-				await remote.fs.call(
-					'readFileSync',
-					await remote.path.call(
-						'join',
-						await resourceLoader.getUnzippedPath('extensions', installed_extension),
-						'manifest.json'
-					),
-					'utf-8'
+		let manifest: any;
+		try {
+			manifest = JSON.parse(
+				String(
+					await remote.fs.call(
+						'readFileSync',
+						await remote.path.call(
+							'join',
+							await resourceLoader.getUnzippedPath('extensions', installed_extension),
+							'manifest.json'
+						),
+						'utf-8'
+					)
 				)
-			)
-		);
+			);
+		} catch {
+			// manifest.json 不存在或解析失败（如 OCR 等非扩展文件夹），视为未检测到可用扩展
+			return undefined;
+		}
 		// 检查是否为 MV2 拓展，如果是则报错
 		if (_get(manifest, 'manifest_version', 2) < 3) {
 			return undefined;
