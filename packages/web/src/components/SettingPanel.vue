@@ -9,14 +9,15 @@
 				/></span>
 				OCS脚本配置
 			</template>
-			<Description class="pt-2 pb-2">
+			<template #extra>
 				<a-button
 					type="primary"
+					size="small"
 					@click="onSyncOCSConfig"
 				>
 					同步配置到各浏览器
 				</a-button>
-			</Description>
+			</template>
 			<div class="mt-2">
 				<OCSConfigs v-model:store="store.render.setting.ocs.store"></OCSConfigs>
 			</div>
@@ -80,6 +81,38 @@
 				</a-tooltip>
 			</Description>
 
+			<Description label="显示截图预览">
+				<a-tooltip
+					content="启用后，浏览器卡片（简洁模式）与监控页面（专业模式）将定时显示浏览器运行界面截图预览。修改后需重启浏览器生效。"
+				>
+					<a-switch v-model="store.render.setting.browser.screenshotPreview" />
+				</a-tooltip>
+			</Description>
+
+			<Description label="截图刷新间隔">
+				<a-select
+					v-model="store.render.setting.browser.screenshotInterval"
+					style="width: 200px"
+					:placeholder="''"
+				>
+					<a-option :value="2">2 秒</a-option>
+					<a-option :value="5">5 秒</a-option>
+					<a-option :value="10">10 秒</a-option>
+					<a-option :value="15">15 秒</a-option>
+					<a-option :value="30">30 秒</a-option>
+				</a-select>
+				<a-popover>
+					<template #content>
+						<div>设置运行时截图的定时刷新间隔，间隔越短越实时但占用更多资源。</div>
+						<div>修改后需重启浏览器生效。</div>
+					</template>
+					<Icon
+						class="ms-2"
+						type="help_outline"
+					/>
+				</a-popover>
+			</Description>
+
 			<Description
 				v-if="!simple"
 				label="浏览器缓存预警阈值"
@@ -94,6 +127,32 @@
 					<template #content>
 						<div>当前浏览器缓存总大小超过此数字时则会弹出警告弹窗。</div>
 						<div>也可在左上角工具中找到 "清除浏览器缓存" 功能</div>
+					</template>
+					<Icon
+						class="ms-2"
+						type="help_outline"
+					/>
+				</a-popover>
+			</Description>
+
+			<Description
+				v-if="!simple"
+				label="截图预览长宽比"
+			>
+				<a-select
+					v-model="store.render.setting.browser.screenshotAspectRatio"
+					style="width: 200px"
+					:placeholder="''"
+				>
+					<a-option value="16:9">16:9</a-option>
+					<a-option value="4:3">4:3</a-option>
+					<a-option value="21:9">21:9</a-option>
+					<a-option value="3:2">3:2</a-option>
+				</a-select>
+				<a-popover>
+					<template #content>
+						<div>设置浏览器启动时的视口长宽比，截图预览将按此比例显示。</div>
+						<div>修改后需重启浏览器生效。</div>
 					</template>
 					<Icon
 						class="ms-2"

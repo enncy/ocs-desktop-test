@@ -19,6 +19,12 @@ type BrowserInfo = { name: string; notes: string; tags: { color: string; name: s
 type BrowserConfig = {
 	/** 是否启用弹窗 */
 	enable_dialog?: boolean;
+	/** 截图预览长宽比，格式 "宽:高" 如 "16:9"，空字符串表示自动匹配 */
+	screenshot_aspect_ratio?: string;
+	/** 是否启用截图预览（定时截图并保存） */
+	screenshot_preview?: boolean;
+	/** 截图刷新间隔（秒） */
+	screenshot_interval?: number;
 };
 
 interface Langs {
@@ -27,7 +33,6 @@ interface Langs {
 	error_when_browser_launch_failed_too_fast?: string;
 	error_when_extension_version_too_low?: string;
 	error_when_playwright_selector_timeout?: string;
-	webrtc_page_loading_notice?: string;
 }
 
 /** 脚本工作线程 */
@@ -44,6 +49,10 @@ export class ScriptWorker {
 	/** 浏览器中软件设置的名字 */
 	browserInfo?: BrowserInfo;
 	config?: BrowserConfig;
+	/** 截图定时器 */
+	screenshotTimer: ReturnType<typeof setInterval> | null = null;
+	/** 截图保存目录 */
+	screenshotDir: string = '';
 	static langs?: Langs;
 	static lang: (key: keyof Langs, def?: string, replace?: Record<string, string>) => string = (key, def, replace) => {
 		const result = _get(ScriptWorker.langs, key, def);
@@ -96,6 +105,9 @@ export class ScriptWorker {
 		// 浏览器中软件设置的名字
 		this.browserInfo = browserInfo;
 		this.config = config;
+
+		// 截图保存目录
+		this.screenshotDir = path.join(store.paths['user-data-path'], '.ocs-screenshots');
 
 		this.debug('初始化成功');
 	}
@@ -198,6 +210,10 @@ export class ScriptWorker {
 
 					// 浏览器启动完成
 					send('launched');
+					// 启动截图定时器（仅在用户开启截图预览时）
+					if (this.config?.screenshot_preview !== false) {
+						this.startScreenshotTimer({ intervalMs: (this.config?.screenshot_interval ?? 5) * 1000 });
+					}
 				},
 
 				automationScripts: this.automationScripts,
@@ -254,52 +270,93 @@ export class ScriptWorker {
 	}
 
 	async close() {
+		this.stopScreenshotTimer();
 		await this.browser?.close();
 		this.browser = undefined;
 		send('browser-closed');
 		process.exit();
 	}
 
-	// TODO
-	async bringToFront() {
-		this.browser?.pages().at(-1)?.bringToFront();
-	}
+	/**
+	 * 定时截图，保存到磁盘供 Express 服务器提供访问
+	 */
+	takeScreenshot() {
+		try {
+			const pages = this.browser?.pages();
+			if (!pages || pages.length === 0) return;
 
-	/** 跳转到特殊图像共享浏览器窗口 */
-	async gotoWebRTCPage() {
-		const page = await this.browser?.newPage();
-		if (page) {
-			const loadingText = ScriptWorker.lang('webrtc_page_loading_notice', `正在获取图像中，请勿操作...`);
-			await page
-				.evaluate(
-					({ uid, text }: { uid: string; text: string }) => {
-						document.title = uid;
-						document.body.innerHTML = text;
-					},
-					{ uid: this.uid, text: loadingText }
-				)
-				.catch(console.error);
+			// 定位当前正在访问的页面：从最后一个页面开始倒序查找非内部页面
+			// 最后一个页面通常是用户最近操作的（置顶/新开的），更符合"当前界面"的语义
+			const page =
+				[...pages].reverse().find((p) => !p.url().startsWith('chrome') && !p.url().startsWith('about:')) ||
+				pages.at(-1);
+			if (!page || page.url().startsWith('chrome')) return;
 
-			setTimeout(() => {
-				send('webrtc-page-loaded');
-			}, 200);
+			page
+				.screenshot({ type: 'jpeg', quality: 50 })
+				.then((buffer) => {
+					if (!this.screenshotDir) return;
+					fs.mkdirSync(this.screenshotDir, { recursive: true });
+					fs.writeFileSync(path.join(this.screenshotDir, this.uid + '.jpg'), buffer);
+					send('screenshot-updated', this.uid);
+				})
+				.catch(() => {
+					// 静默忽略截图失败（页面关闭、chrome:// 页面等）
+				});
+		} catch {
+			// 静默忽略
 		}
 	}
 
-	/** 关闭特殊图像共享浏览器窗口 */
-	async closeWebRTCPage() {
-		try {
-			const pages = this.browser?.pages() || [];
-			for (const page of pages) {
-				const title = await page.title();
-				if (title === this.uid) {
-					await page.close();
-				}
-			}
-		} catch {}
+	/**
+	 * 启动截图定时器
+	 */
+	startScreenshotTimer(opts: { intervalMs: number }) {
+		// 同步到模块级变量，供 handleBrowserInit 清理
+		_screenshotDir = this.screenshotDir;
+		_screenshotUid = this.uid;
+
+		fs.mkdirSync(this.screenshotDir, { recursive: true });
+
+		// 首次延迟 2 秒执行，避免与启动流程冲突
 		setTimeout(() => {
-			send('webrtc-page-closed');
-		}, 200);
+			this.takeScreenshot();
+		}, 2000);
+
+		this.screenshotTimer = setInterval(() => {
+			this.takeScreenshot();
+		}, opts.intervalMs);
+
+		// 同步到模块级
+		_screenshotTimer = this.screenshotTimer;
+	}
+
+	/**
+	 * 停止截图定时器并清理截图文件
+	 */
+	stopScreenshotTimer() {
+		if (this.screenshotTimer) {
+			clearInterval(this.screenshotTimer);
+			this.screenshotTimer = null;
+			_screenshotTimer = null;
+		}
+
+		// 清理截图文件
+		if (this.screenshotDir && this.uid) {
+			const screenshotPath = path.join(this.screenshotDir, this.uid + '.jpg');
+			try {
+				if (fs.existsSync(screenshotPath)) {
+					fs.unlinkSync(screenshotPath);
+				}
+			} catch {}
+		}
+
+		send('screenshot-cleared', this.uid);
+	}
+
+	// TODO
+	async bringToFront() {
+		this.browser?.pages().at(-1)?.bringToFront();
 	}
 
 	kill() {
@@ -331,6 +388,16 @@ function formatExtensionArguments(extensionPaths: string[]) {
 
 function loggerPrefix() {
 	return `[OCS] ${new Date().toLocaleTimeString()}`;
+}
+
+/** 根据长宽比字符串计算 Playwright viewport，格式 "宽:高" 如 "16:9" */
+function computeViewport(aspectRatio?: string): { width: number; height: number } | null {
+	if (!aspectRatio) return null;
+	const parts = aspectRatio.split(':').map(Number);
+	if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1]) || parts[0] <= 0 || parts[1] <= 0) return null;
+	const width = 1280;
+	const height = Math.round((width * parts[1]) / parts[0]);
+	return { width, height };
 }
 
 /**
@@ -379,7 +446,7 @@ export async function launchBrowser({
 		chromium
 			.launchPersistentContext(userDataDir, {
 				headless,
-				viewport: null,
+				viewport: computeViewport(config?.screenshot_aspect_ratio),
 				executablePath,
 				ignoreHTTPSErrors: true,
 				acceptDownloads: true,
@@ -521,6 +588,28 @@ async function initScripts(urls: string[], browser: BrowserContext) {
 
 function send(event: string, ...args: any[]) {
 	process.send?.({ event, args });
+}
+
+/** 模块级截图状态，供 handleBrowserInit 中浏览器自行关闭时清理 */
+let _screenshotTimer: ReturnType<typeof setInterval> | null = null;
+let _screenshotDir: string = '';
+let _screenshotUid: string = '';
+
+function clearScreenshotTimer() {
+	if (_screenshotTimer) {
+		clearInterval(_screenshotTimer);
+		_screenshotTimer = null;
+	}
+	// 清理截图文件
+	if (_screenshotDir && _screenshotUid) {
+		const screenshotPath = path.join(_screenshotDir, _screenshotUid + '.jpg');
+		try {
+			if (fs.existsSync(screenshotPath)) {
+				fs.unlinkSync(screenshotPath);
+			}
+		} catch {}
+	}
+	send('screenshot-cleared', _screenshotUid);
 }
 
 function sleep(t: number) {
@@ -743,7 +832,6 @@ function browserNetworkRoute(authToken: string, browser: BrowserContext) {
 }
 
 function handleBrowserInit(browser: BrowserContext, config: { enable_dialog?: boolean; userDataDir: string }) {
-	// 防检测
 	browser.addInitScript({
 		content: 'Object.defineProperty(navigator, "webdriver", { get: () => false });console.log(navigator)'
 	});
@@ -761,6 +849,7 @@ function handleBrowserInit(browser: BrowserContext, config: { enable_dialog?: bo
 
 	browser.once('close', () => {
 		send('browser-closed');
+		clearScreenshotTimer();
 		process.exit();
 	});
 

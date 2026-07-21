@@ -324,6 +324,23 @@ export async function startupServer() {
 		}
 	});
 
+	/** 提供浏览器运行时截图预览 */
+	app.get('/api/screenshot/:uid', (req, res) => {
+		const token = req.headers['auth-token'] || req.query.token;
+		if (token !== store.store.server.authToken) {
+			res.status(403).send('Unauthorized');
+			return;
+		}
+		const uid = req.params.uid;
+		const screenshotPath = path.join(store.store.paths['user-data-path'], '.ocs-screenshots', uid + '.jpg');
+		if (fs.existsSync(screenshotPath)) {
+			res.setHeader('Content-Type', 'image/jpeg');
+			res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+			res.sendFile(screenshotPath);
+		} else {
+			res.status(404).send('No screenshot');
+		}
+	});
 	// 静态资源
 	app.use(express.static(path.join(getProjectPath(), './public')));
 

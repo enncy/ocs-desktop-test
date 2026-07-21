@@ -22,8 +22,8 @@
 
 				<template #action>
 					<div class="fs-6">
-						<IconUp v-if="collapse" />
-						<IconDown v-else />
+						<IconDown v-if="collapse" />
+						<IconUp v-else />
 					</div>
 				</template>
 

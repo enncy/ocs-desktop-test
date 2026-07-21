@@ -1,4 +1,4 @@
-import { ipcMain, app, dialog, BrowserWindow, desktopCapturer, safeStorage } from 'electron';
+import { ipcMain, app, dialog, BrowserWindow, safeStorage } from 'electron';
 import { Logger } from '../logger';
 import { autoLaunch } from './auto.launch';
 import axios, { AxiosRequestConfig } from 'axios';
@@ -115,9 +115,6 @@ const methods = {
 	},
 	isDirectory: (path: string) => fs.statSync(path).isDirectory(),
 	getRawScripts: () => JSON.parse(JSON.stringify(AutomationScripts)) as RawAutomationScript[],
-	captureDesktopScreen: () => {
-		return desktopCapturer.getSources({ types: ['window'] });
-	},
 	encryptRenderString,
 	decryptRenderString,
 	/** 一次性完成加密和存储，避免二次 IPC 调用 */
@@ -151,7 +148,6 @@ export function remoteRegister(_win: BrowserWindow) {
 	registerRemoteEvent('dialog', dialog);
 	registerRemoteEvent('methods', methods);
 	registerRemoteEvent('logger', Logger('render'));
-	registerRemoteEvent('desktopCapturer', desktopCapturer);
 }
 
 const _registerRemoteEvent = registerRemoteEvent;

@@ -33,8 +33,8 @@ export class Process extends EventEmitter {
 	/** 输出 */
 	logs: string[] = [];
 
-	video: HTMLVideoElement | undefined = undefined;
-	stream: MediaStream | undefined = undefined;
+	/** 截图时间戳，用于缓存刷新 */
+	screenshotTimestamp: number = 0;
 
 	static from(uid: string) {
 		return processes.find((p) => p.uid === uid);
@@ -94,8 +94,22 @@ export class Process extends EventEmitter {
 			 * 可以由 browser.close() 关闭
 			 * 或者进程主动触发
 			 */
+			/** 截图更新 */
+			'screenshot-updated': () => {
+				this.screenshotTimestamp = Date.now();
+			},
+			/** 截图清理 */
+			'screenshot-cleared': () => {
+				this.screenshotTimestamp = 0;
+			},
+			/**
+			 * 浏览器关闭
+			 * 可以由 browser.close() 关闭
+			 * 或者进程主动触发
+			 */
 			'browser-closed': () => {
 				console.log('browser-closed', this.uid);
+				this.screenshotTimestamp = 0;
 				// 从进程列表中移除
 				Process.remove(this.uid);
 			}
@@ -121,7 +135,10 @@ export class Process extends EventEmitter {
 				tags: this.browser.tags
 			},
 			config: {
-				enable_dialog: store.render.setting.browser.enableDialog
+				enable_dialog: store.render.setting.browser.enableDialog,
+				screenshot_aspect_ratio: store.render.setting.browser.screenshotAspectRatio,
+				screenshot_preview: store.render.setting.browser.screenshotPreview,
+				screenshot_interval: store.render.setting.browser.screenshotInterval
 			},
 			langs: store.render.langs as any
 		});
@@ -243,6 +260,14 @@ export class Process extends EventEmitter {
 		} else {
 			Message.warning('必须先启动文件');
 		}
+	}
+
+	/** 截图预览 URL */
+	get screenshotUrl(): string {
+		if (this.status !== 'launched' || !this.screenshotTimestamp) return '';
+		return `http://localhost:${store.server.port || 15319}/api/screenshot/${this.uid}?token=${
+			store.server.authToken
+		}&t=${this.screenshotTimestamp}`;
 	}
 
 	toString() {

@@ -33,11 +33,6 @@ export type WebStore = {
 		};
 		/** 列数控制 */
 		num: number;
-		/** 视频设置 */
-		video: {
-			/** 横纵比 */
-			aspectRatio?: number;
-		};
 	};
 	setting: {
 		browserType: 'diy' | 'local' | 'setup';
@@ -72,6 +67,12 @@ export type WebStore = {
 			forceUpdateScript: boolean;
 			/** 点击「新建浏览器」时是否自动打开初始化弹窗并执行初始化 */
 			autoInitNewBrowser: boolean;
+			/** 截图预览长宽比，格式为 "宽:高" 如 "16:9"，空字符串表示自动匹配卡片比例 */
+			screenshotAspectRatio: string;
+			/** 是否在浏览器卡片/监控页面中显示运行时截图预览 */
+			screenshotPreview: boolean;
+			/** 截图刷新间隔（秒），控制运行时截图的定时刷新频率 */
+			screenshotInterval: number;
 		};
 	};
 
@@ -133,10 +134,7 @@ const DEFAULT_RENDER = {
 			tags: false,
 			notes: false
 		},
-		num: 4,
-		video: {
-			aspectRatio: 0
-		}
+		num: 4
 	},
 	setting: {
 		browserType: 'diy',
@@ -158,7 +156,10 @@ const DEFAULT_RENDER = {
 			cachesSizeWarningPoint: 10,
 			enableDialog: false,
 			forceUpdateScript: false,
-			autoInitNewBrowser: true
+			autoInitNewBrowser: true,
+			screenshotAspectRatio: '16:9',
+			screenshotPreview: true,
+			screenshotInterval: 5
 		}
 	},
 	langs: {},
@@ -173,7 +174,7 @@ const DEFAULT_RENDER = {
 			user_script_usage: false,
 			browser_usage: false,
 			automation_script_usage: false,
-			resources_usage: false,
+			resources_usage: false
 		},
 		guide: {
 			init: false,

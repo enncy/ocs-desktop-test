@@ -112,7 +112,7 @@ const props = withDefaults(
 		iconClass?: string;
 	}>(),
 	{
-		tooltipPosition: 'top',
+		tooltipPosition: 'br',
 		iconClass: 'fs-6'
 	}
 );

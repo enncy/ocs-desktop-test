@@ -63,10 +63,46 @@
 									<a-card
 										:data-uid="browser.uid"
 										class="browser-card entity"
+										:class="cardClass(browser)"
 										@click="selectBrowser(browser)"
 									>
+										<!-- 截图封面区域（运行中时独占整个卡片） -->
+										<div
+											v-if="showScreenshot(browser.uid)"
+											class="card-screenshot"
+											:style="{ aspectRatio: screenshotAspectRatio }"
+										>
+											<img
+												v-if="getProcess(browser.uid)?.screenshotTimestamp"
+												:src="getProcess(browser.uid)?.screenshotUrl"
+												alt="浏览器预览"
+												class="screenshot-img"
+											/>
+											<div
+												v-else
+												class="screenshot-placeholder"
+											>
+												<Icon type="hourglass_top" /> 等待截图...
+											</div>
+											<!-- 标题浮于截图上方 -->
+											<div class="card-screenshot-overlay">
+												<div class="card-name-text card-name-white">
+													<Icon type="web">
+														{{ browser.name }}
+													</Icon>
+												</div>
+												<BrowserOperators
+													:browser="browser"
+													icon-class="fs-5"
+												/>
+											</div>
+										</div>
+
 										<template #extra>
-											<div class="d-flex align-items-end">
+											<div
+												v-if="!showScreenshot(browser.uid)"
+												class="d-flex align-items-end"
+											>
 												<BrowserOperators
 													:browser="browser"
 													icon-class="fs-5"
@@ -75,7 +111,10 @@
 										</template>
 
 										<template #title>
-											<div class="card-name-text">
+											<div
+												v-if="!showScreenshot(browser.uid)"
+												class="card-name-text"
+											>
 												<Icon type="web">
 													<!-- 重命名状态 -->
 													<template v-if="getBrowserInstance(browser.uid)?.renaming">
@@ -94,7 +133,7 @@
 											</div>
 										</template>
 
-										<a-card-meta>
+										<a-card-meta v-if="!showScreenshot(browser.uid)">
 											<template #description>
 												<!-- 备注/描述 -->
 												<div
@@ -182,6 +221,7 @@ import CommonEditActionDropdown from '../../components/CommonEditActionDropdown.
 import { store } from '../../store';
 import { root } from '../../fs/folder';
 import { Browser } from '../../fs/browser';
+import { Process } from '../../utils/process';
 import { BrowserOptions } from '../../fs/interface';
 import { newBrowserOrInit } from '../../utils/browser';
 import EmptyBrowserCard from '../../components/EmptyBrowserCard.vue';
@@ -203,6 +243,37 @@ const allBrowsers = computed(() => {
 /** 获取浏览器实例 */
 function getBrowserInstance(uid: string): Browser | undefined {
 	return Browser.from(uid);
+}
+
+/** 获取浏览器运行进程 */
+function getProcess(uid: string): Process | undefined {
+	return Process.from(uid);
+}
+
+/** 截图预览长宽比 CSS 值 */
+const screenshotAspectRatio = computed(() => {
+	const ratio = store.render.setting.browser.screenshotAspectRatio;
+	if (!ratio) return '16 / 9';
+	const parts = ratio.split(':');
+	if (parts.length !== 2) return '16 / 9';
+	return parts[0] + ' / ' + parts[1];
+});
+
+/** 浏览器是否已启动 */
+function isLaunched(uid: string): boolean {
+	return getProcess(uid)?.status === 'launched';
+}
+
+/** 是否显示截图预览（已启动且用户开启了截图预览） */
+function showScreenshot(uid: string): boolean {
+	return isLaunched(uid) && store.render.setting.browser.screenshotPreview;
+}
+
+/** 计算浏览器卡片的 class */
+function cardClass(browser: BrowserOptions) {
+	return {
+		'has-screenshot': showScreenshot(browser.uid)
+	};
 }
 
 /** 选中浏览器，显示操作面板 */
@@ -288,12 +359,29 @@ onMounted(() => {
 		transform: translateY(0);
 	}
 
+	// 有截图时：隐藏 header，body 零内边距，截图铺满卡片
+	&.has-screenshot {
+		:deep(.arco-card-header) {
+			display: none;
+		}
+
+		:deep(.arco-card-body) {
+			padding: 0;
+			overflow: hidden;
+			border-radius: 8px;
+		}
+	}
+
 	.card-name-text {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		max-width: 300px;
 		font-size: 14px;
+	}
+
+	.card-name-white {
+		color: white;
 	}
 
 	.card-icon {
@@ -320,6 +408,49 @@ onMounted(() => {
 		-webkit-line-clamp: 2;
 		-webkit-box-orient: vertical;
 	}
+}
+
+.card-screenshot {
+	position: relative;
+	overflow: hidden;
+	background-color: #f2f3f5;
+	// 自适应宽高比，不会超出界面
+
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.screenshot-img {
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+.card-screenshot-overlay {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	padding: 8px 12px;
+	background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+	color: white;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+
+	:deep(.arco-btn-text) {
+		color: rgba(255, 255, 255, 0.85);
+
+		&:hover {
+			color: white;
+		}
+	}
+}
+
+.screenshot-placeholder {
+	color: #86909c;
+	font-size: 12px;
 }
 
 .add-card {
@@ -366,6 +497,10 @@ body[arco-theme='dark'] & {
 		}
 	}
 
+	.card-screenshot {
+		background-color: #2a2a2b;
+	}
+
 	.add-card {
 		border-color: #484849;
 		background: transparent;
@@ -403,7 +538,7 @@ body[arco-theme='dark'] & {
 .tabs {
 	position: sticky;
 	top: 0px;
-	z-index: 99;
+	z-index: 999;
 
 	:deep(.arco-tabs-tab) {
 		border: 1px solid rgb(235, 235, 235);

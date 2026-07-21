@@ -9,7 +9,6 @@ import { handleError } from './src/tasks/error.handler';
 import { updater } from './src/tasks/updater';
 import { startupServer } from './src/tasks/startup.server';
 import { initChrome } from './src/tasks/init.chrome';
-import { store } from './src/store';
 import { initAesKey } from './src/crypto';
 
 app.setName('ocs');
@@ -46,12 +45,6 @@ function bootstrap() {
 			),
 			task('初始化自动启动', () => autoLaunch()),
 			task('启动渲染进程', async () => {
-				// 设置 webrtc 的影像帧率比例，最高100，太高会造成卡顿，参数默认50
-				app.commandLine.appendSwitch(
-					'webrtc-max-cpu-consumption-percentage',
-					(store.store.app?.video_frame_rate ?? 1).toString()
-				);
-
 				await app.whenReady();
 				const window = createWindow();
 				await task('初始化谷歌浏览器', () => initChrome(window));
