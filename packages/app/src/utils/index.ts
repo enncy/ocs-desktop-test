@@ -27,13 +27,16 @@ export async function downloadFile(fileURL: string, outputURL: string, rateHandl
 	const { data, headers } = await axios.get(fileURL, {
 		responseType: 'stream'
 	});
-	const totalLength = parseInt(headers['content-length']);
+	const totalLength = parseInt(headers['content-length']) || 0;
 
 	let chunkLength = 0;
 	data.on('data', (chunk: any) => {
-		chunkLength += String(chunk).length;
-		const rate = ((chunkLength / totalLength) * 100).toFixed(2);
-		rateHandler(parseFloat(rate), totalLength, chunkLength);
+		chunkLength += chunk.length;
+		if (totalLength > 0) {
+			// clamp 到 0-100，防止 content-length 与实际数据不匹配（如 gzip 解压、分块传输等）
+			const rate = Math.min(100, (chunkLength / totalLength) * 100);
+			rateHandler(parseFloat(rate.toFixed(2)), totalLength, chunkLength);
+		}
 	});
 
 	// 创建文件夹
@@ -44,7 +47,7 @@ export async function downloadFile(fileURL: string, outputURL: string, rateHandl
 	const writer = createWriteStream(outputURL);
 	data.pipe(writer);
 	await finished(writer);
-	rateHandler(100, totalLength, totalLength);
+	rateHandler(100, totalLength, chunkLength);
 
 	return outputURL;
 }

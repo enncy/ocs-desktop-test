@@ -43,15 +43,6 @@ export const config = reactive({
 					}
 				},
 				{
-					name: 'resources',
-					path: 'resources',
-					component: () => import('@/pages/resources/index.vue'),
-					meta: {
-						icon: 'widgets',
-						title: '应用中心'
-					}
-				},
-				{
 					name: 'dashboard',
 					path: 'dashboard',
 					component: () => import('@/pages/dashboard/index.vue'),

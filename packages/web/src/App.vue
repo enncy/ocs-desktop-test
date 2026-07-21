@@ -36,6 +36,7 @@
 			<!-- 全局：一键安装 -->
 			<Setup
 				v-model:visible="store.render.state.setup"
+				:auto-setup="true"
 				:preset-steps="[
 					'show_desc',
 					'init_env',
@@ -45,6 +46,11 @@
 					'init_script',
 					'update_env'
 				]"
+				@finish="
+					() => {
+						store.render.state.setup = false;
+					}
+				"
 			></Setup>
 
 			<!-- 全局：新建浏览器自动初始化 -->
@@ -72,7 +78,7 @@ import { remote } from './utils/remote';
 import { root } from './fs/folder';
 import { electron } from './utils/node';
 import { closeAllBrowser, showClearBrowserCachesModal } from './utils/browser';
-import { about, changeTheme, fetchRemoteNotify, fetchRemoteLangs, setAlwaysOnTop, setAutoLaunch } from './utils';
+import { changeTheme, fetchRemoteNotify, fetchRemoteLangs, setAlwaysOnTop, setAutoLaunch } from './utils';
 import { activeIpcRenderListener } from './utils/ipc';
 import { getWindowsRelease } from './utils/os';
 import { currentBrowser } from './fs';
@@ -134,11 +140,14 @@ onMounted(async () => {
 	onResize();
 	window.addEventListener('resize', onResize);
 
-	/** 获取最新远程通知 */
-	fetchRemoteNotify(false).catch(console.error);
-
 	/** 获取远程语言 */
 	fetchRemoteLangs().catch(console.error);
+
+	// 首次初始化不显示通知。
+	if (!store.render.state.setup) {
+		/** 获取最新远程通知 */
+		fetchRemoteNotify(false).catch(console.error);
+	}
 
 	/** 检测浏览器缓存大小，超过阈值则提示 */
 	remote.methods.call('statisticFolderSize', store.paths.userDataDirsFolder).then((totalSize) => {

@@ -1,14 +1,15 @@
 <template>
 	<div class="setting container-md">
-		<a-card title="脚本设置">
-			<Description class="pt-2 pb-2">
-				<template #label>
-					<img
+		<a-card>
+			<template #title>
+				<span class="card-title-icon"
+					><img
 						src="../../public/favicon.png"
-						width="32px"
-					/>
-					<span class="fw-bold"> OCS脚本配置 </span>
-				</template>
+						width="22px"
+				/></span>
+				OCS脚本配置
+			</template>
+			<Description class="pt-2 pb-2">
 				<a-button
 					type="primary"
 					@click="onSyncOCSConfig"
@@ -21,7 +22,13 @@
 			</div>
 		</a-card>
 
-		<a-card title="基本设置">
+		<ResourcesCard />
+
+		<a-card>
+			<template #title>
+				<span class="card-title-icon">⚙️</span>
+				基本设置
+			</template>
 			<Description label="开机自启">
 				<a-switch v-model="store.window.autoLaunch" />
 			</Description>
@@ -46,7 +53,11 @@
 			</Description>
 		</a-card>
 
-		<a-card title="浏览器设置">
+		<a-card>
+			<template #title>
+				<span class="card-title-icon">🌐</span>
+				浏览器设置
+			</template>
 			<BrowserPath v-if="!simple"></BrowserPath>
 
 			<Description label="原生弹窗">
@@ -92,7 +103,11 @@
 			</Description>
 		</a-card>
 
-		<a-card title="路径设置">
+		<a-card>
+			<template #title>
+				<span class="card-title-icon">📂</span>
+				路径设置
+			</template>
 			<Path
 				label="浏览器缓存路径"
 				name="userDataDirsFolder"
@@ -133,6 +148,7 @@ import { lang, store } from '../store';
 import { remote } from '../utils/remote';
 import BrowserPath from './setting/BrowserPath.vue';
 import OCSConfigs from './OCSConfigs.vue';
+import ResourcesCard from './ResourcesCard.vue';
 import { changeTheme } from '../utils';
 import Icon from './Icon.vue';
 import { forceClearBrowserCache } from '../utils/browser';
@@ -184,5 +200,17 @@ function onSyncOCSConfig() {
 
 .arco-card + .arco-card {
 	margin-top: 12px;
+}
+
+:deep(.arco-card-header-title) {
+	display: flex;
+	align-items: center;
+}
+
+.card-title-icon {
+	margin-right: 6px;
+	font-size: 22px;
+	display: inline-flex;
+	align-items: center;
 }
 </style>

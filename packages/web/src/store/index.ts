@@ -89,6 +89,8 @@ export type WebStore = {
 			user_script_usage: boolean;
 			browser_usage: boolean;
 			automation_script_usage: boolean;
+			/** 应用设置-使用提示：折叠状态 */
+			resources_usage: boolean;
 		};
 		/** 新手使用指引完成记录（达成一次即永久标记） */
 		guide: {
@@ -170,7 +172,8 @@ const DEFAULT_RENDER = {
 		read_record: {
 			user_script_usage: false,
 			browser_usage: false,
-			automation_script_usage: false
+			automation_script_usage: false,
+			resources_usage: false,
 		},
 		guide: {
 			init: false,

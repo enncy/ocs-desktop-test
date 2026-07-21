@@ -247,7 +247,9 @@ import AutomationScriptSelector from './automation-scripts/AutomationScriptSelec
 import AutomationScriptList from './automation-scripts/AutomationScriptList.vue';
 import type { RawAutomationScript } from './automation-scripts';
 import { useEnvironmentDetect } from '../composables/useEnvironmentDetect';
+import { useResources } from '../composables/useResources';
 const { updateEnvironmentDetect } = useEnvironmentDetect();
+const { refreshFileStatus } = useResources();
 
 type Step = {
 	title: string;
@@ -404,7 +406,7 @@ const _preset_steps = {
 					force_install: true
 				});
 				if (!default_extension_filepath) {
-					step.error = '脚本管理器安装失败，请稍后重试，或者稍后在左侧应用中心手动安装。';
+					step.error = '脚本管理器安装失败，请稍后重试，或者稍后在软件设置-应用设置手动安装。';
 					return;
 				}
 				step.description += `\n已安装脚本管理器：${default_extension.name} - ${default_extension.url}`;
@@ -433,7 +435,7 @@ const _preset_steps = {
 							cancelText: '取消',
 							okText: '一键更新',
 							onCancel(e) {
-								reject(new Error('你已取消更新，请自行在左侧应用中心更新拓展或者重新初始化。'));
+								reject(new Error('你已取消更新，请自行在软件设置-应用设置更新拓展或者重新初始化。'));
 							},
 							async onOk() {
 								await install_new();
@@ -507,9 +509,12 @@ const _preset_steps = {
 		title: '更新环境',
 		async action() {
 			await updateEnvironmentDetect();
+			refreshFileStatus();
 		}
 	} as Step
 };
+
+export type PresetSteps = (keyof typeof _preset_steps)[];
 
 const props = withDefaults(
 	defineProps<{
@@ -518,7 +523,7 @@ const props = withDefaults(
 		cancelText?: string;
 		title?: string;
 		autoSetup?: boolean;
-		presetSteps?: (keyof typeof _preset_steps)[];
+		presetSteps?: PresetSteps;
 	}>(),
 	{
 		visible: false,
