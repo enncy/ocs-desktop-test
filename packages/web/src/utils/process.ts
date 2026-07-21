@@ -136,7 +136,6 @@ export class Process extends EventEmitter {
 			},
 			config: {
 				enable_dialog: store.render.setting.browser.enableDialog,
-				screenshot_aspect_ratio: store.render.setting.browser.screenshotAspectRatio,
 				screenshot_preview: store.render.setting.browser.screenshotPreview,
 				screenshot_interval: store.render.setting.browser.screenshotInterval
 			},

@@ -67,8 +67,6 @@ export type WebStore = {
 			forceUpdateScript: boolean;
 			/** 点击「新建浏览器」时是否自动打开初始化弹窗并执行初始化 */
 			autoInitNewBrowser: boolean;
-			/** 截图预览长宽比，格式为 "宽:高" 如 "16:9"，空字符串表示自动匹配卡片比例 */
-			screenshotAspectRatio: string;
 			/** 是否在浏览器卡片/监控页面中显示运行时截图预览 */
 			screenshotPreview: boolean;
 			/** 截图刷新间隔（秒），控制运行时截图的定时刷新频率 */
@@ -157,7 +155,6 @@ const DEFAULT_RENDER = {
 			enableDialog: false,
 			forceUpdateScript: false,
 			autoInitNewBrowser: true,
-			screenshotAspectRatio: '16:9',
 			screenshotPreview: true,
 			screenshotInterval: 5
 		}

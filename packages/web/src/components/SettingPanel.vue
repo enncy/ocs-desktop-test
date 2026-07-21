@@ -134,32 +134,6 @@
 					/>
 				</a-popover>
 			</Description>
-
-			<Description
-				v-if="!simple"
-				label="截图预览长宽比"
-			>
-				<a-select
-					v-model="store.render.setting.browser.screenshotAspectRatio"
-					style="width: 200px"
-					:placeholder="''"
-				>
-					<a-option value="16:9">16:9</a-option>
-					<a-option value="4:3">4:3</a-option>
-					<a-option value="21:9">21:9</a-option>
-					<a-option value="3:2">3:2</a-option>
-				</a-select>
-				<a-popover>
-					<template #content>
-						<div>设置浏览器启动时的视口长宽比，截图预览将按此比例显示。</div>
-						<div>修改后需重启浏览器生效。</div>
-					</template>
-					<Icon
-						class="ms-2"
-						type="help_outline"
-					/>
-				</a-popover>
-			</Description>
 		</a-card>
 
 		<a-card>

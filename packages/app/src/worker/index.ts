@@ -19,8 +19,6 @@ type BrowserInfo = { name: string; notes: string; tags: { color: string; name: s
 type BrowserConfig = {
 	/** 是否启用弹窗 */
 	enable_dialog?: boolean;
-	/** 截图预览长宽比，格式 "宽:高" 如 "16:9"，空字符串表示自动匹配 */
-	screenshot_aspect_ratio?: string;
 	/** 是否启用截图预览（定时截图并保存） */
 	screenshot_preview?: boolean;
 	/** 截图刷新间隔（秒） */
@@ -390,16 +388,6 @@ function loggerPrefix() {
 	return `[OCS] ${new Date().toLocaleTimeString()}`;
 }
 
-/** 根据长宽比字符串计算 Playwright viewport，格式 "宽:高" 如 "16:9" */
-function computeViewport(aspectRatio?: string): { width: number; height: number } | null {
-	if (!aspectRatio) return null;
-	const parts = aspectRatio.split(':').map(Number);
-	if (parts.length !== 2 || isNaN(parts[0]) || isNaN(parts[1]) || parts[0] <= 0 || parts[1] <= 0) return null;
-	const width = 1280;
-	const height = Math.round((width * parts[1]) / parts[0]);
-	return { width, height };
-}
-
 /**
  * 运行脚本
  */
@@ -446,7 +434,7 @@ export async function launchBrowser({
 		chromium
 			.launchPersistentContext(userDataDir, {
 				headless,
-				viewport: computeViewport(config?.screenshot_aspect_ratio),
+				viewport: null,
 				executablePath,
 				ignoreHTTPSErrors: true,
 				acceptDownloads: true,

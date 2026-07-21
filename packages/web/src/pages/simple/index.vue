@@ -70,7 +70,6 @@
 										<div
 											v-if="showScreenshot(browser.uid)"
 											class="card-screenshot"
-											:style="{ aspectRatio: screenshotAspectRatio }"
 										>
 											<img
 												v-if="getProcess(browser.uid)?.screenshotTimestamp"
@@ -250,15 +249,6 @@ function getProcess(uid: string): Process | undefined {
 	return Process.from(uid);
 }
 
-/** 截图预览长宽比 CSS 值 */
-const screenshotAspectRatio = computed(() => {
-	const ratio = store.render.setting.browser.screenshotAspectRatio;
-	if (!ratio) return '16 / 9';
-	const parts = ratio.split(':');
-	if (parts.length !== 2) return '16 / 9';
-	return parts[0] + ' / ' + parts[1];
-});
-
 /** 浏览器是否已启动 */
 function isLaunched(uid: string): boolean {
 	return getProcess(uid)?.status === 'launched';
@@ -414,7 +404,8 @@ onMounted(() => {
 	position: relative;
 	overflow: hidden;
 	background-color: #f2f3f5;
-	// 自适应宽高比，不会超出界面
+	// 固定宽高比，不会超出界面
+	aspect-ratio: 16 / 9;
 
 	display: flex;
 	align-items: center;
