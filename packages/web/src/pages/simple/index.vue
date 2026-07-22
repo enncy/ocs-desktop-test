@@ -72,8 +72,8 @@
 											class="card-screenshot"
 										>
 											<img
-												v-if="getProcess(browser.uid)?.screenshotTimestamp"
-												:src="getProcess(browser.uid)?.screenshotUrl"
+												v-if="getProcess(browser.uid)?.frameUrl"
+												:src="getProcess(browser.uid)?.frameUrl"
 												alt="浏览器预览"
 												class="screenshot-img"
 											/>
@@ -220,7 +220,8 @@ import CommonEditActionDropdown from '../../components/CommonEditActionDropdown.
 import { store } from '../../store';
 import { root } from '../../fs/folder';
 import { Browser } from '../../fs/browser';
-import { Process } from '../../utils/process';
+import { Process, processes } from '../../utils/process';
+import { useScreencastVisibility } from '../../composables/useScreencastVisibility';
 import { BrowserOptions } from '../../fs/interface';
 import { newBrowserOrInit } from '../../utils/browser';
 import EmptyBrowserCard from '../../components/EmptyBrowserCard.vue';
@@ -304,9 +305,23 @@ watch(
 	}
 );
 
+/** 卡片可见性驱动 Page.startScreencast 启停（仅可见卡片推流，滚出视口自动停止） */
+const { refresh: refreshScreencast } = useScreencastVisibility({
+	cardSelector: '.browser-card[data-uid]',
+	root: () => document.querySelector('.simple-mode-container')
+});
+
+/** 进程状态快照，uid:status 变化时触发预览同步 */
+const processesSnapshot = computed(() => processes.map((p) => `${p.uid}:${p.status}`).join('|'));
+
+watch([() => state.activeTab, () => allBrowsers.value.length, processesSnapshot], () => {
+	nextTick(refreshScreencast);
+});
+
 onMounted(() => {
 	// 确保专业模式的面板已关闭
 	store.render.browser.currentBrowserUid = '';
+	nextTick(refreshScreencast);
 });
 </script>
 
@@ -371,7 +386,7 @@ onMounted(() => {
 	}
 
 	.card-name-white {
-		color: white;
+		color: #1d2129;
 	}
 
 	.card-icon {
@@ -420,21 +435,22 @@ onMounted(() => {
 
 .card-screenshot-overlay {
 	position: absolute;
-	bottom: 0;
+	top: 0;
 	left: 0;
 	right: 0;
 	padding: 8px 12px;
-	background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
-	color: white;
+	// 底层浅白色，防止与截图颜色重合
+	background: rgba(255, 255, 255, 0.591);
+	color: #1d2129;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 
 	:deep(.arco-btn-text) {
-		color: rgba(255, 255, 255, 0.85);
+		color: rgba(29, 33, 41, 0.75);
 
 		&:hover {
-			color: white;
+			color: #1d2129;
 		}
 	}
 }
@@ -490,6 +506,23 @@ body[arco-theme='dark'] & {
 
 	.card-screenshot {
 		background-color: #2a2a2b;
+	}
+
+	.card-screenshot-overlay {
+		background: rgba(40, 40, 42, 0.72);
+		color: #ffffff71;
+
+		.card-name-white {
+			color: #ffffffd9;
+		}
+
+		:deep(.arco-btn-text) {
+			color: rgba(255, 255, 255, 0.75);
+
+			&:hover {
+				color: #ffffffd9;
+			}
+		}
 	}
 
 	.add-card {

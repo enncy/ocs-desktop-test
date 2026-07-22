@@ -81,30 +81,55 @@
 				</a-tooltip>
 			</Description>
 
-			<Description label="显示截图预览">
+			<Description label="显示浏览器预览">
 				<a-tooltip
-					content="启用后，浏览器卡片（简洁模式）与监控页面（专业模式）将定时显示浏览器运行界面截图预览。修改后需重启浏览器生效。"
+					content="启用后，浏览器卡片（简洁模式）与监控页面（专业模式）将实时显示浏览器运行界面预览。仅可见卡片推流，滚出视口自动停止以节省资源。开关实时生效。"
 				>
 					<a-switch v-model="store.render.setting.browser.screenshotPreview" />
 				</a-tooltip>
 			</Description>
 
-			<Description label="截图刷新间隔">
+			<Description
+				v-if="store.render.setting.browser.screenshotPreview"
+				label="预览帧率"
+			>
 				<a-select
-					v-model="store.render.setting.browser.screenshotInterval"
+					v-model="store.render.setting.browser.screenshotFramerate"
 					style="width: 200px"
 					:placeholder="''"
 				>
-					<a-option :value="2">2 秒</a-option>
-					<a-option :value="5">5 秒</a-option>
-					<a-option :value="10">10 秒</a-option>
-					<a-option :value="15">15 秒</a-option>
-					<a-option :value="30">30 秒</a-option>
+					<a-option value="high">高（约 30 帧/秒）</a-option>
+					<a-option value="medium">中（约 15 帧/秒）</a-option>
+					<a-option value="low">低（约 6 帧/秒）</a-option>
 				</a-select>
 				<a-popover>
 					<template #content>
-						<div>设置运行时截图的定时刷新间隔，间隔越短越实时但占用更多资源。</div>
-						<div>修改后需重启浏览器生效。</div>
+						<div>控制预览帧率，越高越流畅但占用更多资源。</div>
+						<div>实际帧率随页面内容动态变化（静止画面自动停止推流），实时生效。</div>
+					</template>
+					<Icon
+						class="ms-2"
+						type="help_outline"
+					/>
+				</a-popover>
+			</Description>
+
+			<Description
+				v-if="store.render.setting.browser.screenshotPreview"
+				label="预览画质"
+			>
+				<a-select
+					v-model="store.render.setting.browser.screenshotQuality"
+					style="width: 200px"
+					:placeholder="''"
+				>
+					<a-option value="high">高（1280×720）</a-option>
+					<a-option value="medium">中（640×360）</a-option>
+					<a-option value="low">低（480×270）</a-option>
+				</a-select>
+				<a-popover>
+					<template #content>
+						<div>控制预览画质（分辨率与压缩率），越高越清晰但占用更多资源，实时生效。</div>
 					</template>
 					<Icon
 						class="ms-2"

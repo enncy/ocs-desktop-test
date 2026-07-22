@@ -2,7 +2,7 @@ import { Instance as Chalk } from 'chalk';
 import { LoggerCore } from '../logger.core';
 import path, { basename } from 'path';
 import fs from 'fs';
-import { chromium, BrowserContext, Page, LaunchOptions, Response, Request } from 'playwright-core';
+import { chromium, BrowserContext, Page, LaunchOptions, Response, Request, CDPSession } from 'playwright-core';
 import { AppStore } from '../../types';
 import { AutomationScripts } from '../scripts/index';
 import { Config } from '../scripts/interface';
@@ -19,10 +19,8 @@ type BrowserInfo = { name: string; notes: string; tags: { color: string; name: s
 type BrowserConfig = {
 	/** 是否启用弹窗 */
 	enable_dialog?: boolean;
-	/** 是否启用截图预览（定时截图并保存） */
+	/** 是否启用浏览器界面预览（Page.startScreencast 推流） */
 	screenshot_preview?: boolean;
-	/** 截图刷新间隔（秒） */
-	screenshot_interval?: number;
 };
 
 interface Langs {
@@ -47,10 +45,12 @@ export class ScriptWorker {
 	/** 浏览器中软件设置的名字 */
 	browserInfo?: BrowserInfo;
 	config?: BrowserConfig;
-	/** 截图定时器 */
-	screenshotTimer: ReturnType<typeof setInterval> | null = null;
-	/** 截图保存目录 */
-	screenshotDir: string = '';
+	/** Screencast CDP 会话 */
+	screencastSession?: CDPSession;
+	/** Screencast 监控的目标页面 */
+	screencastPage?: Page;
+	/** Screencast 参数 */
+	screencastParams?: { everyNthFrame: number; maxWidth: number; maxHeight: number; quality: number };
 	static langs?: Langs;
 	static lang: (key: keyof Langs, def?: string, replace?: Record<string, string>) => string = (key, def, replace) => {
 		const result = _get(ScriptWorker.langs, key, def);
@@ -103,9 +103,6 @@ export class ScriptWorker {
 		// 浏览器中软件设置的名字
 		this.browserInfo = browserInfo;
 		this.config = config;
-
-		// 截图保存目录
-		this.screenshotDir = path.join(store.paths['user-data-path'], '.ocs-screenshots');
 
 		this.debug('初始化成功');
 	}
@@ -208,10 +205,8 @@ export class ScriptWorker {
 
 					// 浏览器启动完成
 					send('launched');
-					// 启动截图定时器（仅在用户开启截图预览时）
-					if (this.config?.screenshot_preview !== false) {
-						this.startScreenshotTimer({ intervalMs: (this.config?.screenshot_interval ?? 5) * 1000 });
-					}
+					// 截图预览的启停交由渲染进程按卡片可见性驱动（Page.startScreencast），
+					// 此处不再自启动定时截图，避免不可见卡片浪费资源
 				},
 
 				automationScripts: this.automationScripts,
@@ -268,7 +263,7 @@ export class ScriptWorker {
 	}
 
 	async close() {
-		this.stopScreenshotTimer();
+		await this.stopScreencast();
 		await this.browser?.close();
 		this.browser = undefined;
 		send('browser-closed');
@@ -276,80 +271,104 @@ export class ScriptWorker {
 	}
 
 	/**
-	 * 定时截图，保存到磁盘供 Express 服务器提供访问
+	 * 选择当前 screencast 监控目标页面：倒序查找非内部页面（chrome:// / about:），
+	 * 确保监控的是用户当前关注的页面
 	 */
-	takeScreenshot() {
+	private pickScreencastPage(): Page | undefined {
+		const pages = this.browser?.pages();
+		if (!pages || pages.length === 0) return undefined;
+		return (
+			[...pages].reverse().find((p) => !p.url().startsWith('chrome') && !p.url().startsWith('about:')) || pages.at(-1)
+		);
+	}
+
+	/**
+	 * 启动 Page.startScreencast 推流，帧写入磁盘后由本地服务器提供访问。
+	 * 由渲染进程按卡片可见性驱动调用，替代旧的定时截图。
+	 * 帧率自适应：页面活跃时按 everyNthFrame 推流，静止时浏览器不合成、自动停推。
+	 */
+	async startScreencast(opts?: { everyNthFrame?: number; maxWidth?: number; maxHeight?: number; quality?: number }) {
+		if (!this.browser) return;
+
+		// 合并参数：优先用 opts，其次沿用已存参数（用于 page 切换重选），最后默认值
+		const params = {
+			everyNthFrame: opts?.everyNthFrame ?? this.screencastParams?.everyNthFrame ?? 4,
+			maxWidth: opts?.maxWidth ?? this.screencastParams?.maxWidth ?? 640,
+			maxHeight: opts?.maxHeight ?? this.screencastParams?.maxHeight ?? 360,
+			quality: opts?.quality ?? this.screencastParams?.quality ?? 35
+		};
+		this.screencastParams = params;
+
+		// 先清理旧的 session（page 切换重选场景）
+		await this.stopScreencastInternal();
+
+		const page = this.pickScreencastPage();
+		if (!page || page.url().startsWith('chrome')) return;
+
 		try {
-			const pages = this.browser?.pages();
-			if (!pages || pages.length === 0) return;
+			const session = await page.context().newCDPSession(page);
 
-			// 定位当前正在访问的页面：从最后一个页面开始倒序查找非内部页面
-			// 最后一个页面通常是用户最近操作的（置顶/新开的），更符合"当前界面"的语义
-			const page =
-				[...pages].reverse().find((p) => !p.url().startsWith('chrome') && !p.url().startsWith('about:')) ||
-				pages.at(-1);
-			if (!page || page.url().startsWith('chrome')) return;
+			session.on('Page.screencastFrame', ({ data, sessionId }) => {
+				// 先 ack，保证浏览器持续推帧（ack 延迟会导致停推）
+				session.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
+				// 帧直接 IPC 直传渲染进程（base64），不再写盘
+				send('screencast-frame', this.uid, data);
+			});
 
-			page
-				.screenshot({ type: 'jpeg', quality: 50 })
-				.then((buffer) => {
-					if (!this.screenshotDir) return;
-					fs.mkdirSync(this.screenshotDir, { recursive: true });
-					fs.writeFileSync(path.join(this.screenshotDir, this.uid + '.jpg'), buffer);
-					send('screenshot-updated', this.uid);
-				})
-				.catch(() => {
-					// 静默忽略截图失败（页面关闭、chrome:// 页面等）
-				});
+			await session.send('Page.startScreencast', {
+				format: 'jpeg',
+				quality: params.quality,
+				maxWidth: params.maxWidth,
+				maxHeight: params.maxHeight,
+				everyNthFrame: params.everyNthFrame
+			});
+
+			this.screencastSession = session;
+			this.screencastPage = page;
+
+			// 监控目标页面关闭时自动重选，保证预览连续
+			page.once('close', () => this.handleScreencastPageGone());
 		} catch {
-			// 静默忽略
+			// 静默忽略（页面不可截、session 创建失败等）
 		}
 	}
 
 	/**
-	 * 启动截图定时器
+	 * 停止 screencast 推流、清理截图文件并通知渲染进程清理预览
 	 */
-	startScreenshotTimer(opts: { intervalMs: number }) {
-		// 同步到模块级变量，供 handleBrowserInit 清理
-		_screenshotDir = this.screenshotDir;
-		_screenshotUid = this.uid;
-
-		fs.mkdirSync(this.screenshotDir, { recursive: true });
-
-		// 首次延迟 2 秒执行，避免与启动流程冲突
-		setTimeout(() => {
-			this.takeScreenshot();
-		}, 2000);
-
-		this.screenshotTimer = setInterval(() => {
-			this.takeScreenshot();
-		}, opts.intervalMs);
-
-		// 同步到模块级
-		_screenshotTimer = this.screenshotTimer;
+	async stopScreencast() {
+		await this.stopScreencastInternal();
+		this.screencastParams = undefined; // 标记完全停止
+		send('screencast-cleared', this.uid);
 	}
 
 	/**
-	 * 停止截图定时器并清理截图文件
+	 * 仅停止 screencast session，不清理文件、不发事件（用于内部切换/重选）
 	 */
-	stopScreenshotTimer() {
-		if (this.screenshotTimer) {
-			clearInterval(this.screenshotTimer);
-			this.screenshotTimer = null;
-			_screenshotTimer = null;
-		}
-
-		// 清理截图文件
-		if (this.screenshotDir && this.uid) {
-			const screenshotPath = path.join(this.screenshotDir, this.uid + '.jpg');
+	private async stopScreencastInternal() {
+		if (this.screencastSession) {
 			try {
-				if (fs.existsSync(screenshotPath)) {
-					fs.unlinkSync(screenshotPath);
-				}
+				await this.screencastSession.detach();
 			} catch {}
+			this.screencastSession = undefined;
 		}
+		this.screencastPage = undefined;
+	}
 
-		send('screenshot-cleared', this.uid);
+	/**
+	 * 监控目标页面关闭后，延迟重选下一个页面继续推流
+	 */
+	private handleScreencastPageGone() {
+		if (!this.screencastParams) return; // 已主动停止
+		// session 随页面关闭已失效，无需 detach
+		this.screencastSession = undefined;
+		this.screencastPage = undefined;
+		setTimeout(() => {
+			// 仍在运行且未主动停止则沿用原参数重选
+			if (this.screencastParams && this.browser) {
+				this.startScreencast();
+			}
+		}, 500);
 	}
 
 	// TODO
@@ -576,28 +595,6 @@ async function initScripts(urls: string[], browser: BrowserContext) {
 
 function send(event: string, ...args: any[]) {
 	process.send?.({ event, args });
-}
-
-/** 模块级截图状态，供 handleBrowserInit 中浏览器自行关闭时清理 */
-let _screenshotTimer: ReturnType<typeof setInterval> | null = null;
-let _screenshotDir: string = '';
-let _screenshotUid: string = '';
-
-function clearScreenshotTimer() {
-	if (_screenshotTimer) {
-		clearInterval(_screenshotTimer);
-		_screenshotTimer = null;
-	}
-	// 清理截图文件
-	if (_screenshotDir && _screenshotUid) {
-		const screenshotPath = path.join(_screenshotDir, _screenshotUid + '.jpg');
-		try {
-			if (fs.existsSync(screenshotPath)) {
-				fs.unlinkSync(screenshotPath);
-			}
-		} catch {}
-	}
-	send('screenshot-cleared', _screenshotUid);
 }
 
 function sleep(t: number) {
@@ -837,7 +834,6 @@ function handleBrowserInit(browser: BrowserContext, config: { enable_dialog?: bo
 
 	browser.once('close', () => {
 		send('browser-closed');
-		clearScreenshotTimer();
 		process.exit();
 	});
 

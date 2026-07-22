@@ -67,10 +67,12 @@ export type WebStore = {
 			forceUpdateScript: boolean;
 			/** 点击「新建浏览器」时是否自动打开初始化弹窗并执行初始化 */
 			autoInitNewBrowser: boolean;
-			/** 是否在浏览器卡片/监控页面中显示运行时截图预览 */
+			/** 是否在浏览器卡片/监控页面中显示运行时界面预览（Page.startScreencast 推流） */
 			screenshotPreview: boolean;
-			/** 截图刷新间隔（秒），控制运行时截图的定时刷新频率 */
-			screenshotInterval: number;
+			/** 预览帧率档位：high(~30fps) / medium(~15fps) / low(~6fps) */
+			screenshotFramerate: 'high' | 'medium' | 'low';
+			/** 预览画质档位：控制分辨率与 jpeg 质量，high / medium / low */
+			screenshotQuality: 'high' | 'medium' | 'low';
 		};
 	};
 
@@ -156,7 +158,8 @@ const DEFAULT_RENDER = {
 			forceUpdateScript: false,
 			autoInitNewBrowser: true,
 			screenshotPreview: true,
-			screenshotInterval: 5
+			screenshotFramerate: 'low' as const,
+			screenshotQuality: 'medium' as const
 		}
 	},
 	langs: {},
@@ -192,6 +195,12 @@ if (typeof _store.render === 'string') {
 		// @ts-ignore
 		const renderStr = _store.render as string;
 		const data = JSON.parse(remote.methods.callSync('decryptRenderString' as any, renderStr));
+		// 迁移：旧版 screenshotQuality 语义为帧率，拆分为 screenshotFramerate(帧率) + screenshotQuality(画质)
+		const _oldBrowser = data?.setting?.browser;
+		if (_oldBrowser && !('screenshotFramerate' in _oldBrowser) && 'screenshotQuality' in _oldBrowser) {
+			_oldBrowser.screenshotFramerate = _oldBrowser.screenshotQuality;
+			_oldBrowser.screenshotQuality = 'medium';
+		}
 		// 解密后的 render 是历史持久化对象，可能缺少后续版本新增的字段，
 		// 再次与默认值合并以补齐（如 state.guide），避免渲染端读取 undefined。
 		Reflect.set(_store, 'render', defaultsDeep(data, DEFAULT_RENDER));

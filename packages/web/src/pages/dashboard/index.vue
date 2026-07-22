@@ -56,7 +56,10 @@
 					v-for="pro of runningProcesses"
 					:key="pro.uid"
 				>
-					<div class="browser">
+					<div
+						class="browser"
+						:data-uid="pro.uid"
+					>
 						<!-- 头部操作按钮 -->
 						<div class="browser-title">
 							<a-row
@@ -115,12 +118,12 @@
 						>
 							<div
 								class="browser-video"
-								:style="{ aspectRatio: screenshotAspectRatio }"
+								:style="{ aspectRatio: '16 / 9' }"
 								@click="openBrowser(pro.uid)"
 							>
 								<img
-									v-if="store.render.setting.browser.screenshotPreview && pro.screenshotTimestamp"
-									:src="pro.screenshotUrl"
+									v-if="store.render.setting.browser.screenshotPreview && pro.frameUrl"
+									:src="pro.frameUrl"
 									alt="浏览器预览"
 									class="screenshot-img"
 								/>
@@ -186,8 +189,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, watch, onMounted, nextTick } from 'vue';
 import { Process, processes } from '../../utils/process';
+import { useScreencastVisibility } from '../../composables/useScreencastVisibility';
 import BrowserOperators from '../../components/browsers/BrowserOperators.vue';
 import { lang, store } from '../../store';
 import Tags from '../../components/Tags.vue';
@@ -197,25 +201,32 @@ import Icon from '../../components/Icon.vue';
 /** 运行中的进程（启动中 + 已启动） */
 const runningProcesses = computed(() => processes.filter((p) => p.status === 'launched' || p.status === 'launching'));
 
-/** 截图预览长宽比 CSS 值 */
-const screenshotAspectRatio = computed(() => {
-	const ratio = store.render.setting.browser.screenshotAspectRatio;
-	if (!ratio) return '16 / 9';
-	const parts = ratio.split(':');
-	if (parts.length !== 2) return '16 / 9';
-	return parts[0] + ' / ' + parts[1];
-});
-
 /** 点击截图区域置顶浏览器 */
 function openBrowser(uid: string) {
 	Process.from(uid)?.bringToFront();
 }
+
+/** 卡片可见性驱动 Page.startScreencast 启停（仅可见卡片推流） */
+const { refresh: refreshScreencast } = useScreencastVisibility({
+	cardSelector: '.browser[data-uid]'
+});
+
+/** 进程状态快照，uid:status 变化时触发预览同步 */
+const processesSnapshot = computed(() => processes.map((p) => `${p.uid}:${p.status}`).join('|'));
+
+watch([processesSnapshot, () => store.render.dashboard.num], () => {
+	nextTick(refreshScreencast);
+});
+
+onMounted(() => {
+	nextTick(refreshScreencast);
+});
 </script>
 
 <style scoped lang="less">
 .dashboard {
 	display: grid;
-	gap: 10px;
+	gap: 2px;
 	grid-template-columns: repeat(6, 1fr);
 }
 

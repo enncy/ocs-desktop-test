@@ -33,8 +33,10 @@ export class Process extends EventEmitter {
 	/** 输出 */
 	logs: string[] = [];
 
-	/** 截图时间戳，用于缓存刷新 */
-	screenshotTimestamp: number = 0;
+	/** 当前预览帧的 Blob URL（由 worker screencast 推流更新） */
+	frameUrl: string = '';
+	/** 上一帧 Blob URL，用于更新前 revoke 避免内存泄漏 */
+	private _blobUrl: string = '';
 
 	static from(uid: string) {
 		return processes.find((p) => p.uid === uid);
@@ -94,13 +96,13 @@ export class Process extends EventEmitter {
 			 * 可以由 browser.close() 关闭
 			 * 或者进程主动触发
 			 */
-			/** 截图更新 */
-			'screenshot-updated': () => {
-				this.screenshotTimestamp = Date.now();
+			/** 预览帧到达（worker screencast 推流，base64 直传） */
+			'screencast-frame': (_uid: string, base64: string) => {
+				this.setFrame(base64);
 			},
-			/** 截图清理 */
-			'screenshot-cleared': () => {
-				this.screenshotTimestamp = 0;
+			/** 预览清理 */
+			'screencast-cleared': () => {
+				this.clearFrame();
 			},
 			/**
 			 * 浏览器关闭
@@ -109,7 +111,7 @@ export class Process extends EventEmitter {
 			 */
 			'browser-closed': () => {
 				console.log('browser-closed', this.uid);
-				this.screenshotTimestamp = 0;
+				this.clearFrame();
 				// 从进程列表中移除
 				Process.remove(this.uid);
 			}
@@ -136,8 +138,7 @@ export class Process extends EventEmitter {
 			},
 			config: {
 				enable_dialog: store.render.setting.browser.enableDialog,
-				screenshot_preview: store.render.setting.browser.screenshotPreview,
-				screenshot_interval: store.render.setting.browser.screenshotInterval
+				screenshot_preview: store.render.setting.browser.screenshotPreview
 			},
 			langs: store.render.langs as any
 		});
@@ -261,12 +262,39 @@ export class Process extends EventEmitter {
 		}
 	}
 
-	/** 截图预览 URL */
-	get screenshotUrl(): string {
-		if (this.status !== 'launched' || !this.screenshotTimestamp) return '';
-		return `http://localhost:${store.server.port || 15319}/api/screenshot/${this.uid}?token=${
-			store.server.authToken
-		}&t=${this.screenshotTimestamp}`;
+	/**
+	 * 设置截图预览（Page.startScreencast）启停，由卡片可见性驱动调用。
+	 * 仅在已启动时生效；不可见时停止推流以释放资源。
+	 */
+	setScreencastActive(
+		active: boolean,
+		opts?: { everyNthFrame?: number; maxWidth?: number; maxHeight?: number; quality?: number }
+	) {
+		if (this.status !== 'launched') return;
+		if (active) {
+			this.worker?.('startScreencast', opts);
+		} else {
+			this.worker?.('stopScreencast');
+		}
+	}
+
+	/**
+	 * 设置预览帧：base64 -> Blob URL，更新前 revoke 上一帧避免内存泄漏
+	 */
+	setFrame(base64: string) {
+		if (this._blobUrl) URL.revokeObjectURL(this._blobUrl);
+		const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+		this._blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+		this.frameUrl = this._blobUrl;
+	}
+
+	/** 清理预览帧 */
+	clearFrame() {
+		if (this._blobUrl) {
+			URL.revokeObjectURL(this._blobUrl);
+			this._blobUrl = '';
+		}
+		this.frameUrl = '';
 	}
 
 	toString() {
