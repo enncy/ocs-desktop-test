@@ -26,7 +26,9 @@ export const OriginalAppStore = {
 	window: {
 		/** 开机自启 */
 		alwaysOnTop: false,
-		autoLaunch: false
+		autoLaunch: false,
+		/** 后台运行：关闭窗口时自动隐藏到系统托盘，浏览器保持运行（默认开启） */
+		hideToTrayOnClose: true
 	},
 	/** 本地服务器数据 */
 	server: {

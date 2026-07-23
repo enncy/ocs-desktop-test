@@ -107,7 +107,7 @@ export type WebStore = {
  * 1) 首次加载时与磁盘 store 做 defaultsDeep 合并；
  * 2) 解密后的 render 对象再做一次 defaultsDeep，补齐后续版本新增的字段（如 state.guide）。
  *    必须复用同一份，避免新增字段时漏补导致渲染端读取 undefined。 */
-const DEFAULT_RENDER = {
+export const DEFAULT_RENDER = {
 	scripts: [],
 	notifies: [],
 	browser: {
@@ -184,7 +184,9 @@ const DEFAULT_RENDER = {
 } as WebStore;
 
 const _store: AppStore & { render: WebStore } = defaultsDeep(remote['electron-store'].get('store'), {
-	render: DEFAULT_RENDER
+	render: DEFAULT_RENDER,
+	// 补齐主进程 window 配置中可能缺失的字段（旧版本用户未触发版本迁移时），后台运行默认开启
+	window: { hideToTrayOnClose: true }
 });
 
 // 解密数据（兼容新旧加密格式）

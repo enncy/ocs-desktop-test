@@ -18,6 +18,7 @@ import { AutomationScript } from '../scripts/script';
 import { getBrowserMajorVersion, getExtensionPaths } from '../utils/browser';
 import { AppStore } from '../../types';
 import { encryptRenderString, decryptRenderString } from '../crypto';
+import { hideToTray, showMainWindow, quitApp, cancelQuit, destroyTray } from '../tray';
 
 export type RawAutomationScript = Pick<AutomationScript, 'configs' | 'name'>;
 
@@ -110,6 +111,24 @@ const methods = {
 	getPlatform: () => process.platform,
 	updateApp: updateApp,
 	moveWindowToTop: moveWindowToTop,
+	/** 隐藏主窗口到系统托盘（后台运行） */
+	hideToTray: hideToTray,
+	/** 显示并聚焦主窗口（从托盘恢复） */
+	showMainWindow: showMainWindow,
+	/** 程序化退出（置位 isQuitting 后 app.exit，绕过「隐藏到托盘」） */
+	quitApp: quitApp,
+	/** 取消程序化退出，复位 isQuitting */
+	cancelQuit: cancelQuit,
+	/** 销毁托盘图标 */
+	destroyTray: destroyTray,
+	/**
+	 * 重置设置并重启：渲染层已同步保存重置后的 store（render.setting + window 等），
+	 * 此处仅负责重启。通过 quitApp 程序化退出，绕过「隐藏到托盘」逻辑。
+	 */
+	resetApp: () => {
+		app.relaunch();
+		quitApp(0);
+	},
 	isEncryptionAvailable: () => {
 		return safeStorage.isEncryptionAvailable();
 	},

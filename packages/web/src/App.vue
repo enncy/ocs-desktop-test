@@ -202,16 +202,14 @@ onMounted(async () => {
 
 	/** 全局唯一关闭处理 */
 	let isExiting = false;
-	ipcRenderer.on('close', async () => {
-		// 防重入：避免重复点击关闭按钮或 window.close 循环导致并发触发关闭流程、重复弹窗
-		if (isExiting) return;
-		isExiting = true;
+
+	/** 完整退出流程：关闭浏览器 + 保存数据 + 退出应用。返回 false 表示用户取消了关闭 */
+	async function performFullExit() {
 		console.log('关闭浏览器中...');
 		const res = await closeAllBrowser();
 		if (res === false) {
-			isExiting = false;
 			console.log('有浏览器拒绝关闭，取消退出');
-			return;
+			return false;
 		}
 		console.log('保存数据中...');
 		const m = Modal.info({ content: '正在保存数据...', closable: false, maskClosable: false, footer: false });
@@ -219,7 +217,36 @@ onMounted(async () => {
 		saveStoreToLocalSync(store);
 		m.close();
 		console.log('数据已保存');
-		remote.app.call('exit', 0);
+		// 即将退出：销毁托盘避免 Windows 残留图标，再通过 quitApp 程序化退出（绕过隐藏到托盘）
+		remote.methods.call('destroyTray');
+		remote.methods.call('quitApp', 0);
+		return true;
+	}
+
+	ipcRenderer.on('close', async () => {
+		// 防重入：避免重复点击关闭按钮或 window.close 循环导致并发触发关闭流程、重复弹窗
+		if (isExiting) return;
+		// 后台运行：关闭窗口时仅隐藏到系统托盘，浏览器与自动化任务保持运行，不退出应用
+		if (store.window.hideToTrayOnClose) {
+			remote.methods.call('hideToTray');
+			return;
+		}
+		isExiting = true;
+		if (!(await performFullExit())) {
+			// 用户取消了关闭浏览器，复位退出标记与程序化退出标记，恢复「隐藏到托盘」能力
+			isExiting = false;
+			remote.methods.call('cancelQuit');
+		}
+	});
+
+	/** 托盘「退出」/ 程序化退出：绕过「隐藏到托盘」逻辑，强制执行完整退出流程 */
+	ipcRenderer.on('quit', async () => {
+		if (isExiting) return;
+		isExiting = true;
+		if (!(await performFullExit())) {
+			isExiting = false;
+			remote.methods.call('cancelQuit');
+		}
 	});
 });
 

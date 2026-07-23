@@ -34,6 +34,14 @@
 				<a-switch v-model="store.window.autoLaunch" />
 			</Description>
 
+			<Description label="后台运行">
+				<a-tooltip
+					content="启用后，关闭软件窗口时将自动隐藏到系统托盘后台运行（浏览器与自动化任务保持运行）。左键单击托盘图标可重新打开，右键托盘图标可选择「退出」完全关闭。"
+				>
+					<a-switch v-model="store.window.hideToTrayOnClose" />
+				</a-tooltip>
+			</Description>
+
 			<Description label="窗口置顶">
 				<a-switch v-model="store.window.alwaysOnTop" />
 			</Description>
@@ -186,7 +194,7 @@
 			/>
 		</a-card>
 
-		<div class="mt-4">
+		<div class="mt-4 mb-5">
 			<a-popconfirm
 				content="确认重置您的设置，并重新启动软件吗？"
 				ok-text="确认"
@@ -202,8 +210,9 @@
 <script setup lang="ts">
 import Description from './Description.vue';
 import Path from './Path.vue';
-import { lang, store } from '../store';
+import { lang, store, DEFAULT_RENDER } from '../store';
 import { remote } from '../utils/remote';
+import cloneDeep from 'lodash/cloneDeep';
 import BrowserPath from './setting/BrowserPath.vue';
 import OCSConfigs from './OCSConfigs.vue';
 import ResourcesCard from './ResourcesCard.vue';
@@ -224,10 +233,13 @@ withDefaults(defineProps<SettingPanelProps>(), {
 
 /** 重置设置 */
 async function reset() {
-	// @ts-ignore
-	store.version = undefined;
-	remote.app.call('relaunch');
-	remote.app.call('exit', 0);
+	// 仅重置软件设置为默认值，保留浏览器分身、脚本、路径等用户数据
+	store.render.setting = cloneDeep(DEFAULT_RENDER.setting);
+	store.window = { alwaysOnTop: false, autoLaunch: false, hideToTrayOnClose: true };
+	// 同步保存，确保重置落盘后再重启（不依赖关闭流程的保存时序，避免强制退出时丢失）
+	const shouldEncrypt = remote.methods.callSync('isEncryptionAvailable');
+	remote.methods.callSync('saveStore', JSON.stringify(store), shouldEncrypt);
+	remote.methods.call('resetApp');
 }
 async function onUserDataDirsFolderChange(previous: string, current: string) {
 	// 更改全部浏览器缓存路径

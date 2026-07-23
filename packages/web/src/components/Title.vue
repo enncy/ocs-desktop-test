@@ -191,7 +191,7 @@ function importData() {
 						simple: false,
 						onOk() {
 							remote.app.call('relaunch');
-							remote.app.call('exit', 0);
+							remote.methods.call('quitApp', 0);
 						}
 					});
 				} catch (err) {

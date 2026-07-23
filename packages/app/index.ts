@@ -3,6 +3,7 @@ import { remoteRegister } from './src/tasks/remote.register';
 import { initStore } from './src/tasks/init.store';
 import { autoLaunch } from './src/tasks/auto.launch';
 import { createWindow } from './src/window';
+import { createTray, isAppQuitting } from './src/tray';
 import { globalListenerRegister } from './src/tasks/global.listener';
 import { task } from './src/utils';
 import { handleError } from './src/tasks/error.handler';
@@ -11,7 +12,11 @@ import { startupServer } from './src/tasks/startup.server';
 import { initChrome } from './src/tasks/init.chrome';
 import { initAesKey } from './src/crypto';
 
-app.setName('ocs');
+app.setName('OCS Desktop');
+
+// 设置应用用户模型 ID，使 Windows 通知（托盘气泡等）显示应用名 "OCS Desktop" 而非进程名 "Electron"。
+// 打包后与 electron-builder 的 appId（快捷方式 AUMID）保持一致，以正确关联应用图标与名称。
+app.setAppUserModelId(app.isPackaged ? 'ocs.enncy.cn' : 'OCS Desktop');
 
 // 防止软件崩溃以及兼容
 app.commandLine.appendSwitch('no-sandbox');
@@ -51,13 +56,15 @@ function bootstrap() {
 
 				app.on('quit', (e) => {
 					e.preventDefault();
-					// 交给渲染层去关闭浏览器
-					window.webContents.send('close');
+					// 交给渲染层去关闭浏览器；程序化退出走 'quit' 以绕过「隐藏到托盘」
+					window.webContents.send(isAppQuitting() ? 'quit' : 'close');
 				});
 
 				window.on('close', (e) => {
 					e.preventDefault();
-					window.webContents.send('close');
+					// 程序化退出（quitApp / before-quit 标记）-> 'quit'：走完整退出流程（关浏览器 + 存数据）
+					// 用户点击关闭按钮 -> 'close'：交由渲染层按「后台运行」开关决定隐藏到托盘或退出
+					window.webContents.send(isAppQuitting() ? 'quit' : 'close');
 				});
 
 				window.webContents.once('did-finish-load', () => {
@@ -71,6 +78,7 @@ function bootstrap() {
 
 				task('初始化远程通信模块', () => remoteRegister(window));
 				task('注册app事件监听器', () => globalListenerRegister(window));
+				task('初始化系统托盘', () => createTray(window));
 
 				if (app.isPackaged) {
 					await window.loadFile('./public/index.html');
