@@ -33,7 +33,7 @@
 
 			<div
 				class="container-md"
-				style="max-width: 800px"
+				:style="{ maxWidth: cardGridMaxWidth }"
 			>
 				<!-- 浏览器面板 -->
 				<div
@@ -54,7 +54,13 @@
 							</a-card>
 						</template>
 						<template v-else>
-							<div class="cards-grid">
+							<div
+								class="cards-grid"
+								:style="{
+									'--simple-card-columns': store.render.setting.simpleCardColumns,
+									'--card-max-width': cardGridMaxWidth
+								}"
+							>
 								<!-- 浏览器卡片 -->
 								<template
 									v-for="browser in allBrowsers"
@@ -326,6 +332,14 @@ const previewBrowserName = ref('');
 /** 当前预览的浏览器对象（用于弹窗内操作按钮） */
 const previewBrowser = computed(() => allBrowsers.value.find((b) => b.uid === previewUid.value));
 
+/** 卡片网格最大宽度：3/4 列时加宽，避免卡片被挤得太小 */
+const cardGridMaxWidth = computed(() => {
+	const cols = store.render.setting.simpleCardColumns;
+	if (cols >= 4) return '1500px';
+	if (cols === 3) return '1200px';
+	return '800px';
+});
+
 /** 打开截图大图预览 */
 function openPreview(browser: BrowserOptions) {
 	if (getProcess(browser.uid)?.frameUrl) {
@@ -398,9 +412,9 @@ onMounted(() => {
 
 .cards-grid {
 	display: grid;
-	grid-template-columns: repeat(2, 1fr);
+	grid-template-columns: repeat(var(--simple-card-columns, 2), 1fr);
 	gap: 16px;
-	max-width: 900px;
+	max-width: var(--card-max-width, 900px);
 	margin: 0 auto;
 }
 

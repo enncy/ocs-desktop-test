@@ -91,6 +91,21 @@
 					@click="changeTheme"
 				/>
 			</Description>
+
+			<Description
+				v-if="simple"
+				label="简洁模式卡片布局"
+			>
+				<a-select
+					v-model="store.render.setting.simpleCardColumns"
+					style="width: 160px"
+				>
+					<a-option :value="1">1 列</a-option>
+					<a-option :value="2">2 列</a-option>
+					<a-option :value="3">3 列</a-option>
+					<a-option :value="4">4 列</a-option>
+				</a-select>
+			</Description>
 		</a-card>
 
 		<a-card>

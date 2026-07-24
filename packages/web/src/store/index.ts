@@ -40,6 +40,8 @@ export type WebStore = {
 		mode: 'simple' | 'professional';
 		/** 是否显示侧边栏文字 */
 		showSideBarText: boolean;
+		/** 简洁模式卡片布局列数 */
+		simpleCardColumns: 1 | 2 | 3 | 4;
 		/** 浏览器启动参数 */
 		launchOptions: {
 			custom: boolean;
@@ -143,6 +145,7 @@ export const DEFAULT_RENDER = {
 		browserType: 'diy',
 		mode: 'simple' as const,
 		showSideBarText: true,
+		simpleCardColumns: 2 as const,
 		launchOptions: {
 			custom: false,
 			executablePath: ''
