@@ -95,15 +95,15 @@ onMounted(() => {
 
 <style lang="less" scoped>
 .beginner-guide {
-	border: 1px solid #e5e6eb;
+	border: 1px solid var(--theme-border-color-light);
 	border-radius: 8px;
-	background-color: white;
+	background-color: var(--theme-card-bg);
 	transition: all 0.2s ease;
 
 	.guide-title {
 		font-size: 14px;
 		font-weight: 600;
-		color: #1d2129;
+		color: var(--theme-text-color-strong);
 		display: flex;
 		align-items: center;
 		gap: 4px;
@@ -114,17 +114,6 @@ onMounted(() => {
 	}
 	:deep(.arco-steps-item-tail) {
 		overflow: hidden;
-	}
-}
-
-body[arco-theme='dark'] & {
-	.beginner-guide {
-		background-color: #17171a;
-		border-color: #3d3d3f;
-
-		.guide-title {
-			color: #ffffffd9;
-		}
 	}
 }
 </style>

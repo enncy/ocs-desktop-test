@@ -10,6 +10,8 @@ import { notify } from './utils/notify';
 import 'material-icons/iconfont/material-icons.css';
 // 自定义圆角主题覆盖，必须在 arco.css 之后引入
 import './assets/less/arco-custom.less';
+// 全局主题样式（主题色板 token + 暗色模式全局覆盖），在 arco-custom 之后引入以覆盖其浅色规则
+import './assets/less/theme.less';
 import { inBrowser } from './utils/node';
 
 window.addEventListener('error', function (e) {

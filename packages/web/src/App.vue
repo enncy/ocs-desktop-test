@@ -78,13 +78,19 @@ import { remote } from './utils/remote';
 import { root } from './fs/folder';
 import { electron } from './utils/node';
 import { closeAllBrowser, showClearBrowserCachesModal } from './utils/browser';
-import { changeTheme, fetchRemoteNotify, fetchRemoteLangs, setAlwaysOnTop, setAutoLaunch } from './utils';
+import {
+	changeTheme,
+	fetchRemoteNotify,
+	fetchRemoteLangs,
+	setAlwaysOnTop,
+	setAutoLaunch,
+	initThemeSystemListener
+} from './utils';
 import { activeIpcRenderListener } from './utils/ipc';
 import { getWindowsRelease } from './utils/os';
 import { currentBrowser } from './fs';
 import { Modal, Message } from '@arco-design/web-vue';
 import zhCN from '@arco-design/web-vue/es/locale/lang/zh-cn';
-import cloneDeep from 'lodash/cloneDeep';
 import debounce from 'lodash/debounce';
 import Title from './components/Title.vue';
 import BrowserPanel from './components/browsers/BrowserPanel.vue';
@@ -135,6 +141,7 @@ onMounted(async () => {
 	setAutoLaunch();
 	setAlwaysOnTop();
 	changeTheme().catch(console.error);
+	initThemeSystemListener();
 
 	/** 监听屏幕变化 */
 	onResize();
@@ -156,15 +163,11 @@ onMounted(async () => {
 		}
 	});
 
-	/** 监听主题变化 */
+	/** 监听主题模式变化（白天/夜间/自动） */
 	watch(
-		() => cloneDeep(store.render.setting.theme),
-		(cur) => {
-			if (cur.dark) {
-				document.body.setAttribute('arco-theme', 'dark');
-			} else {
-				document.body.removeAttribute('arco-theme');
-			}
+		() => store.render.setting.theme.mode,
+		() => {
+			changeTheme().catch(console.error);
 		}
 	);
 

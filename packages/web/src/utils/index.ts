@@ -1,4 +1,4 @@
-import { h } from 'vue';
+import { h, reactive } from 'vue';
 import { store } from '../store';
 import dayjs from 'dayjs';
 import { Message, Modal } from '@arco-design/web-vue';
@@ -243,26 +243,55 @@ export async function about() {
 	});
 }
 
+/** 解析后的主题状态：是否深色 + 系统是否深色。供 Shadow DOM 等无法被 body[arco-theme] 穿透的场景响应深色变化 */
+export const themeState = reactive({ dark: false, systemDark: false });
+
+// 初始化系统深浅色：用主进程 nativeTheme.shouldUseDarkColors（比渲染层 matchMedia 更可靠）
+try {
+	themeState.systemDark = remote.methods.callSync('getSystemDark') as boolean;
+} catch (e) {
+	console.error('读取系统主题失败：' + e);
+}
+
+/** 根据 theme.mode 与系统偏好解析当前是否深色 */
+function resolveDark(): boolean {
+	const mode = store.render.setting.theme.mode;
+	if (mode === 'dark') return true;
+	if (mode === 'light') return false;
+	return themeState.systemDark;
+}
+
+/** 应用主题：同步设置 body 属性与 themeState，异步设置标题栏 */
 export async function changeTheme() {
+	themeState.dark = resolveDark();
+	// 同步设置 body 主题属性，Arco 组件立即响应
+	if (themeState.dark) {
+		document.body.setAttribute('arco-theme', 'dark');
+	} else {
+		document.body.removeAttribute('arco-theme');
+	}
+	// 标题栏颜色需平台判断（macOS 不使用自定义标题栏）
 	const platform = await remote.methods.call('getPlatform');
 	document.body.classList.add('platform-' + platform);
 	if (platform !== 'darwin') {
-		if (store.render.setting.theme.dark) {
-			// 设置为暗黑主题
-			document.body.setAttribute('arco-theme', 'dark');
-			remote.win.call('setTitleBarOverlay', {
-				color: '#2C2C2C',
-				symbolColor: 'white'
-			});
-		} else {
-			// 恢复亮色主题
-			document.body.removeAttribute('arco-theme');
-			remote.win.call('setTitleBarOverlay', {
-				color: '#fff',
-				symbolColor: 'black'
-			});
-		}
+		remote.win.call(
+			'setTitleBarOverlay',
+			themeState.dark ? { color: '#2C2C2C', symbolColor: 'white' } : { color: '#fff', symbolColor: 'black' }
+		);
 	}
+}
+
+/** 初始化系统深浅色偏好监听：auto 模式下系统切换时实时跟随（由主进程 nativeTheme 推送） */
+let themeListenerInited = false;
+export function initThemeSystemListener() {
+	if (themeListenerInited) return;
+	themeListenerInited = true;
+	ipcRenderer.on('system-theme-change', (_e, dark: boolean) => {
+		themeState.systemDark = dark;
+		if (store.render.setting.theme.mode === 'auto') {
+			changeTheme();
+		}
+	});
 }
 
 export function setAutoLaunch() {

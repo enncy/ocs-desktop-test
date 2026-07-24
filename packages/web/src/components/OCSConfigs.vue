@@ -21,7 +21,7 @@
 		<template v-else>
 			<div
 				style="position: sticky; top: 0px; z-index: 99"
-				class="bg-white pb-2"
+				class="bg-white pb-2 ocs-configs-bar"
 			>
 				<a-alert class="mb-2">
 					<span
@@ -61,6 +61,7 @@
 import { onMounted, nextTick, onActivated, reactive, watch, ref, WatchStopHandle, onDeactivated } from 'vue';
 import { remote } from '../utils/remote';
 import { store as Store, lang } from '../store/index';
+import { themeState } from '../utils';
 import type { Project } from 'easy-us';
 
 const props = defineProps<{
@@ -96,6 +97,12 @@ watch(
 	() => {
 		nextTick(renderOCS);
 	}
+);
+
+/** 主题变化时切换 Shadow DOM 暗色类（无需重渲染列表） */
+watch(
+	() => themeState.dark,
+	(dark) => wrapper?.classList.toggle('ocs-dark', dark)
 );
 
 state.watchStopHandle = watch(store, () => {
@@ -135,7 +142,12 @@ function renderOCS() {
 					'.ocs-list-item:active { transform: translateY(0); }',
 					'.ocs-list-item-name { flex: 1; font-weight: 600; font-size: 13px; color: #1d2129; }',
 					'.ocs-list-item-arrow { width: 7px; height: 7px; border-right: 2px solid #c9cdd4; border-bottom: 2px solid #c9cdd4; transform: rotate(-45deg); transition: transform 0.2s, border-color 0.2s; flex-shrink: 0; }',
-					'.ocs-list-item:hover .ocs-list-item-arrow { transform: rotate(-45deg) translate(2px, -2px); border-color: #165dff; }'
+					'.ocs-list-item:hover .ocs-list-item-arrow { transform: rotate(-45deg) translate(2px, -2px); border-color: #165dff; }',
+					// 暗色模式（通过 shadow host 上的 .ocs-dark 类触发，body[arco-theme] 无法穿透 Shadow DOM）
+					':host(.ocs-dark) .ocs-list-item { background: #2c2c2c; border-color: #4b4848; }',
+					':host(.ocs-dark) .ocs-list-item:hover { border-color: #165dff; box-shadow: 0 4px 14px rgba(0,0,0,0.3); }',
+					':host(.ocs-dark) .ocs-list-item-name { color: #cccccc; }',
+					':host(.ocs-dark) .ocs-list-item-arrow { border-color: #6a6a6a; }'
 				].join('\n')
 			)
 		);
@@ -151,6 +163,9 @@ function renderOCS() {
 				].join('\n')
 			)
 		);
+
+		// 根据 当前主题状态切换 shadow host 的暗色类
+		wrapper?.classList.toggle('ocs-dark', themeState.dark);
 
 		const list = h('div', { className: 'ocs-list' });
 		/** panel 缓存：key -> { script, name, panel, rendered }，onrender 首次打开时执行 */
@@ -324,5 +339,23 @@ function resolveCustomElementName<T extends HTMLElement = HTMLElement>(el: { new
 }
 
 .script-panels {
+}
+
+/** 暗色模式：配置栏背景与项目 Tabs 适配 */
+body[arco-theme='dark'] {
+	.ocs-configs-bar {
+		background-color: #2c2c2c !important;
+	}
+
+	:deep(.arco-tabs-card-gutter) .arco-tabs-tab {
+		background-color: #2c2c2c;
+		border-color: #4b4848;
+		color: #cccccc;
+	}
+
+	:deep(.arco-tabs-card-gutter) .arco-tabs-tab-active {
+		background-color: #3b3b3b;
+		color: #ffffffd9;
+	}
 }
 </style>

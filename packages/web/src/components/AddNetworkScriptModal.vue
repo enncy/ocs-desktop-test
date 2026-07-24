@@ -150,13 +150,13 @@ function handleCancel() {
 	align-items: center;
 	justify-content: space-between;
 	padding: 8px 12px;
-	border: 1px solid #e5e6eb;
+	border: 1px solid var(--theme-border-color-light);
 	border-radius: 6px;
 	cursor: pointer;
 	transition: border-color 0.2s;
 
 	&:hover {
-		border-color: #165dff;
+		border-color: var(--theme-primary-color);
 	}
 }
 
@@ -172,7 +172,7 @@ function handleCancel() {
 
 .script-desc {
 	font-size: 12px;
-	color: #86909c;
+	color: var(--theme-text-color-secondary);
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -182,15 +182,5 @@ function handleCancel() {
 .script-actions {
 	flex-shrink: 0;
 	margin-left: 12px;
-}
-
-body[arco-theme='dark'] & {
-	.script-item {
-		border-color: #3d3d3f;
-
-		&:hover {
-			border-color: #165dff;
-		}
-	}
 }
 </style>

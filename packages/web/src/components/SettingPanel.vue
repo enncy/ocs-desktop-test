@@ -45,11 +45,16 @@
 			<Description label="窗口置顶">
 				<a-switch v-model="store.window.alwaysOnTop" />
 			</Description>
-			<Description label="夜间模式">
-				<a-switch
-					v-model="store.render.setting.theme.dark"
-					@click="changeTheme"
-				/>
+			<Description label="主题样式">
+				<a-select
+					v-model="store.render.setting.theme.mode"
+					style="width: 160px"
+					@change="changeTheme"
+				>
+					<a-option value="auto">自动（跟随系统）</a-option>
+					<a-option value="light">白天</a-option>
+					<a-option value="dark">夜间</a-option>
+				</a-select>
 			</Description>
 			<Description
 				v-if="!simple"

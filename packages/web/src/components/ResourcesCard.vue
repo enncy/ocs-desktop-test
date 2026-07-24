@@ -555,17 +555,4 @@ function openDownloadFolder() {
 	display: flex;
 	align-items: center;
 }
-
-/** 暗色主题适配 */
-body[arco-theme='dark'] {
-	.resources-card {
-		.resource-group-title {
-			color: rgb(var(--gray-5));
-		}
-
-		.resource-item:hover {
-			background-color: var(--color-fill-2);
-		}
-	}
-}
 </style>

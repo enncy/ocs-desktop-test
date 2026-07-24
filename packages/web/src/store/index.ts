@@ -47,7 +47,8 @@ export type WebStore = {
 		};
 		/** 当前的主题 */
 		theme: {
-			dark: boolean;
+			/** 主题模式：light 白天 / dark 夜间 / auto 跟随系统 */
+			mode: 'light' | 'dark' | 'auto';
 		};
 		/** ocs 特殊配置 */
 		ocs: {
@@ -92,6 +93,8 @@ export type WebStore = {
 			automation_script_usage: boolean;
 			/** 应用设置-使用提示：折叠状态 */
 			resources_usage: boolean;
+			/** 监控列表的-使用提示：折叠状态 */
+			dashboard_usage: boolean;
 		};
 		/** 新手使用指引完成记录（达成一次即永久标记） */
 		guide: {
@@ -145,7 +148,7 @@ export const DEFAULT_RENDER = {
 			executablePath: ''
 		},
 		theme: {
-			dark: false
+			mode: 'auto' as const
 		},
 		ocs: {
 			currentProjectName: '',
@@ -174,7 +177,8 @@ export const DEFAULT_RENDER = {
 			user_script_usage: false,
 			browser_usage: false,
 			automation_script_usage: false,
-			resources_usage: false
+			resources_usage: false,
+			dashboard_usage: false
 		},
 		guide: {
 			init: false,
@@ -208,6 +212,16 @@ if (typeof _store.render === 'string') {
 		Reflect.set(_store, 'render', defaultsDeep(data, DEFAULT_RENDER));
 	} catch (e) {
 		console.error('数据解密失败：' + e);
+	}
+}
+
+// 迁移：旧版 theme.dark(boolean) -> theme.mode('light'|'dark'|'auto')
+// defaultsDeep 已补齐 mode:'auto'，此处根据旧 dark 值修正：dark:true -> 'dark'，dark:false -> 'auto'
+{
+	const _theme = _store.render?.setting?.theme as { dark?: boolean; mode?: 'light' | 'dark' | 'auto' } | undefined;
+	if (_theme && _theme.dark !== undefined) {
+		_theme.mode = _theme.dark ? 'dark' : 'auto';
+		delete _theme.dark;
 	}
 }
 

@@ -256,19 +256,19 @@ function getUrlVersion(url: string) {
 	font-weight: bold;
 
 	a {
-		color: inherit;
+		color: var(--theme-text-color);
 	}
 }
 
 .user-script-author {
-	color: inherit;
+	color: var(--theme-text-color);
 	display: inline-flex;
 	align-items: center;
 }
 
 .user-script-name:hover {
 	cursor: pointer;
-	color: #1890ff;
+	color: var(--theme-active-color);
 	text-decoration: underline;
 }
 
@@ -282,6 +282,7 @@ function getUrlVersion(url: string) {
 
 .user-script-descriptions {
 	font-size: 12px;
+	color: var(--theme-text-color-secondary);
 	display: inline-flex;
 	align-items: center;
 	white-space: nowrap;
@@ -295,15 +296,15 @@ function getUrlVersion(url: string) {
 }
 
 .user-script {
-	border-bottom: 1px solid #bdbdbd;
+	border-bottom: 1px solid var(--theme-border-color);
 	border-radius: 4px;
 	padding: 8px 12px;
-	box-shadow: 0px 2px 4px 0px #d7d7d7;
-	background-color: white;
+	box-shadow: 0px 2px 4px 0px var(--theme-shadow-color);
+	background-color: var(--theme-card-bg);
 }
 
 .user-script-active {
-	box-shadow: 0px 2px 4px 0px #9ec6eb;
+	box-shadow: 0px 2px 4px 0px var(--theme-primary-color);
 }
 
 .user-script + .user-script {

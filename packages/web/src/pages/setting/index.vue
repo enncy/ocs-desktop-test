@@ -1,5 +1,5 @@
 <template>
-	<div class="w-100 h-100 overflow-auto">
+	<div class="w-100 h-100 overflow-auto pt-3">
 		<SettingPanel />
 	</div>
 </template>

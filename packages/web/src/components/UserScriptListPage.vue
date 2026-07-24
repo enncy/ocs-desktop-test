@@ -179,7 +179,6 @@
 						size="mini"
 						type="outline"
 						class="user-script-action"
-						style="background: white"
 						:disabled="state.versionSelector.loading"
 						@click="showScriptVersionList(script)"
 					>

@@ -1,9 +1,13 @@
 <template>
 	<div class="col-12 p-2 m-auto">
-		<div
-			class="text-secondary markdown mb-2"
-			v-html="lang('notice_dashboard_monitor_page_usage', '')"
-		></div>
+		<!-- 使用提示 -->
+		<UsageAlertCollapse
+			v-model:collapse="store.render.state.read_record.resources_usage"
+			class="mb-2"
+			banner
+			title="使用提示"
+			:html="lang('notice_dashboard_monitor_page_usage', '')"
+		/>
 
 		<div class="d-flex mb-1 align-items-center">
 			<a-space :size="0">
@@ -197,6 +201,7 @@ import { lang, store } from '../../store';
 import Tags from '../../components/Tags.vue';
 import EntityOperator from '../../components/EntityOperator.vue';
 import Icon from '../../components/Icon.vue';
+import UsageAlertCollapse from '../../components/UsageAlertCollapse.vue';
 
 /** 运行中的进程（启动中 + 已启动） */
 const runningProcesses = computed(() => processes.filter((p) => p.status === 'launched' || p.status === 'launching'));
@@ -231,12 +236,12 @@ onMounted(() => {
 }
 
 .browser {
-	background-color: #f2f5f8;
+	background-color: var(--theme-card-bg);
 	padding: 4px;
 	border-radius: 4px;
 
 	&:hover {
-		box-shadow: 0px 0px 4px -1px #2e98fc;
+		box-shadow: 0px 0px 4px -1px var(--theme-primary-color);
 	}
 }
 
@@ -273,12 +278,5 @@ onMounted(() => {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	overflow: hidden;
-}
-
-/** 暗色主题适配 */
-body[arco-theme='dark'] & {
-	.browser {
-		background-color: #2a2a2b;
-	}
 }
 </style>

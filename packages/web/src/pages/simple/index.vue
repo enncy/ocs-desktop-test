@@ -331,7 +331,7 @@ onMounted(() => {
 	display: flex;
 	flex-direction: column;
 	overflow: auto;
-	background-color: #165cff08;
+	background-color: var(--theme-bg-color-deep);
 }
 
 .cards-area {
@@ -348,15 +348,15 @@ onMounted(() => {
 
 .browser-card {
 	background: transparent;
-	border: 1px solid #e5e6eb;
+	border: 1px solid var(--theme-border-color-light);
 	border-radius: 8px;
 	cursor: pointer;
 	transition: all 0.2s ease;
-	background-color: white;
+	background-color: var(--theme-card-bg);
 
 	&:hover {
-		border-color: #bedaff;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+		border-color: var(--theme-primary-color);
+		box-shadow: 0 4px 12px var(--theme-shadow-color);
 		transform: translateY(-2px);
 	}
 
@@ -386,12 +386,12 @@ onMounted(() => {
 	}
 
 	.card-name-white {
-		color: #1d2129;
+		color: var(--theme-text-color-strong);
 	}
 
 	.card-icon {
 		font-size: 18px;
-		color: #165dff;
+		color: var(--theme-primary-color);
 		flex-shrink: 0;
 	}
 
@@ -405,7 +405,7 @@ onMounted(() => {
 
 	.card-notes {
 		font-size: 12px;
-		color: #86909c;
+		color: var(--theme-text-color-secondary);
 		line-height: 1.5;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -418,7 +418,7 @@ onMounted(() => {
 .card-screenshot {
 	position: relative;
 	overflow: hidden;
-	background-color: #f2f3f5;
+	background-color: var(--theme-card-bg);
 	// 固定宽高比，不会超出界面
 	aspect-ratio: 16 / 9;
 
@@ -456,7 +456,7 @@ onMounted(() => {
 }
 
 .screenshot-placeholder {
-	color: #86909c;
+	color: var(--theme-text-color-secondary);
 	font-size: 12px;
 }
 
@@ -466,12 +466,12 @@ onMounted(() => {
 	align-items: center;
 	justify-content: center;
 	min-height: 120px;
-	border: 1px dashed #c9cdd4;
+	border: 1px dashed var(--theme-border-color-light);
 	background-color: transparent;
 
 	&:hover {
-		border-color: #165dff;
-		background-color: #f2f3f5;
+		border-color: var(--theme-primary-color);
+		background-color: var(--theme-hover-bg);
 	}
 
 	.add-icon {
@@ -480,41 +480,11 @@ onMounted(() => {
 	}
 }
 
-/** 暗色主题适配 */
+/** 暗色主题适配：截图浮层为半透明覆盖层，需单独处理（其余由主题变量自动适配） */
 body[arco-theme='dark'] & {
-	.simple-mode-container {
-		background-color: #17171a;
-	}
-
-	.browser-card {
-		background: transparent;
-		border-color: #3d3d3f;
-
-		&:hover {
-			border-color: #3a5a8c;
-			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-		}
-
-		.card-name {
-			color: #ffffffd9;
-		}
-
-		.card-notes {
-			color: #86909c;
-		}
-	}
-
-	.card-screenshot {
-		background-color: #2a2a2b;
-	}
-
 	.card-screenshot-overlay {
 		background: rgba(40, 40, 42, 0.72);
 		color: #ffffff71;
-
-		.card-name-white {
-			color: #ffffffd9;
-		}
 
 		:deep(.arco-btn-text) {
 			color: rgba(255, 255, 255, 0.75);
@@ -522,32 +492,6 @@ body[arco-theme='dark'] & {
 			&:hover {
 				color: #ffffffd9;
 			}
-		}
-	}
-
-	.add-card {
-		border-color: #484849;
-		background: transparent;
-
-		&:hover {
-			border-color: #165dff;
-			background-color: #2a2a2b;
-		}
-
-		.add-icon {
-			color: #484849;
-		}
-
-		.add-text {
-			color: #86909c;
-		}
-	}
-
-	.tabs {
-		background-color: #17171a;
-
-		:deep(.arco-tabs-tab) {
-			border-color: #3d3d3f;
 		}
 	}
 }
@@ -565,8 +509,8 @@ body[arco-theme='dark'] & {
 	z-index: 999;
 
 	:deep(.arco-tabs-tab) {
-		border: 1px solid rgb(235, 235, 235);
-		background-color: white;
+		border: 1px solid var(--theme-border-color-light);
+		background-color: var(--theme-card-bg);
 		box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.06) !important;
 		margin: 4px;
 	}

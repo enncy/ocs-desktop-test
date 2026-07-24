@@ -1,4 +1,4 @@
-import { ipcMain, app, dialog, BrowserWindow, safeStorage } from 'electron';
+import { ipcMain, app, dialog, BrowserWindow, safeStorage, nativeTheme } from 'electron';
 import { Logger } from '../logger';
 import { autoLaunch } from './auto.launch';
 import axios, { AxiosRequestConfig } from 'axios';
@@ -109,6 +109,8 @@ const methods = {
 	exportExcel: exportExcel,
 	statisticFolderSize: statisticFolderSize,
 	getPlatform: () => process.platform,
+	/** 读取系统当前是否为深色主题（nativeTheme.themeSource 默认 system，跟随 OS） */
+	getSystemDark: () => nativeTheme.shouldUseDarkColors,
 	updateApp: updateApp,
 	moveWindowToTop: moveWindowToTop,
 	/** 隐藏主窗口到系统托盘（后台运行） */
@@ -167,6 +169,11 @@ export function remoteRegister(_win: BrowserWindow) {
 	registerRemoteEvent('dialog', dialog);
 	registerRemoteEvent('methods', methods);
 	registerRemoteEvent('logger', Logger('render'));
+
+	// 系统深浅色变化时通知渲染层（用于「自动」模式跟随系统，matchMedia 在 Electron 不稳定）
+	nativeTheme.on('updated', () => {
+		win?.webContents?.send('system-theme-change', nativeTheme.shouldUseDarkColors);
+	});
 }
 
 const _registerRemoteEvent = registerRemoteEvent;

@@ -94,4 +94,12 @@ const localClosed = ref(false);
 code {
 	background-color: rgb(224, 106, 106) !important;
 }
+
+/** 暗色主题适配：a-alert 已由全局 theme.less 统一处理，这里仅保留组件内 code 的暗色覆盖 */
+body[arco-theme='dark'] & {
+	code {
+		background-color: #8a2c2c !important;
+		color: #ffd6d6;
+	}
+}
 </style>
