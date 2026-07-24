@@ -56,6 +56,17 @@
 				<span class="card-title-icon">⚙️</span>
 				基本设置
 			</template>
+			<Description label="软件布局">
+				<a-select
+					v-model="store.render.setting.mode"
+					style="width: 160px"
+					@change="changeMode"
+				>
+					<a-option value="simple">简洁模式</a-option>
+					<a-option value="professional">专业模式</a-option>
+				</a-select>
+			</Description>
+
 			<Description label="开机自启">
 				<a-switch v-model="store.window.autoLaunch" />
 			</Description>
@@ -269,6 +280,7 @@ import { Modal } from '@arco-design/web-vue';
 import { Folder } from '../fs/folder';
 import { Browser } from '../fs/browser';
 import { IconCheckCircleFill } from '@arco-design/web-vue/es/icon';
+import { router } from '../route';
 
 interface SettingPanelProps {
 	simple?: boolean;
@@ -306,6 +318,11 @@ function onSyncOCSConfig() {
 	Modal.success({
 		content: lang('setting_browser_ocs_config_sync_tip_v3', '已同步配置，请重启浏览器即可应用~')
 	});
+}
+
+/** 切换软件布局模式（简洁/专业），并跳转到对应页面 */
+function changeMode() {
+	router.push(store.render.setting.mode === 'professional' ? '/browsers' : '/simple');
 }
 </script>
 
