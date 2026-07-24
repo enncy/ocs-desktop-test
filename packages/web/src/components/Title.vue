@@ -20,7 +20,7 @@
 			<template #content>
 				<a-doption style="width: 200px"> </a-doption>
 
-				<a-doption @click="store.render.state.setup = true"> <Icon type="settings">初始化设置</Icon> </a-doption>
+				<a-doption @click="openSetup"> <Icon type="settings">初始化设置</Icon> </a-doption>
 				<a-doption
 					class="border-bottom"
 					@click="checkBrowserCaches"
@@ -88,6 +88,12 @@ import Icon from './Icon.vue';
 import StatusBar from './StatusBar.vue';
 
 const { shell } = electron;
+
+// 打开初始化设置弹窗（手动触发时跳过「欢迎使用」引导，直接进入初始化）
+function openSetup() {
+	store.render.state.welcome = false;
+	store.render.state.setup = true;
+}
 
 // 重启
 function relaunch() {

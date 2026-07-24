@@ -61,7 +61,7 @@
 						const _steps: PresetSteps = ['show_desc' ];
 						// 根据不同需求进行初始化	
 						if (!envState.isCurrentBrowserSupported || !envState.supportedBrowser ) {
-							_steps.push('init_extensions');
+							_steps.push('init_env');
 						}
 						if (!envState.supportedExtension) {
 							_steps.push('init_extensions');

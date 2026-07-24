@@ -37,7 +37,7 @@
 			>
 				<!-- 浏览器面板 -->
 				<div
-					v-show="state.activeTab === 'browsers'"
+					v-if="state.activeTab === 'browsers'"
 					class="overflow-aut mb-3o"
 				>
 					<!-- 环境检测提示 -->
@@ -211,7 +211,7 @@
 
 				<!-- 脚本面板 -->
 				<div
-					v-show="state.activeTab === 'scripts'"
+					v-if="state.activeTab === 'scripts'"
 					class="overflow-auto p-2"
 				>
 					<UserScriptListPage />
@@ -219,7 +219,7 @@
 
 				<!-- 软件设置面板 -->
 				<div
-					v-show="state.activeTab === 'setting'"
+					v-if="state.activeTab === 'setting'"
 					class="overflow-auto"
 				>
 					<SettingPanel simple />

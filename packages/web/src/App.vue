@@ -33,25 +33,67 @@
 				</div>
 			</a-modal>
 
+			<!-- 全局：欢迎使用引导（首次进入时于初始化弹窗之前展示） -->
+			<a-modal
+				:visible="store.render.state.welcome && store.render.state.setup"
+				:footer="false"
+				:closable="false"
+				:mask-closable="false"
+				:unmount-on-close="true"
+				:width="480"
+				@cancel="store.render.state.welcome = false"
+			>
+				<template #title>
+					<span class="welcome-title">🚀 {{ lang('welcome_title', '欢迎使用 OCS 桌面软件') }}</span>
+				</template>
+				<div class="welcome-body">
+					<p class="welcome-desc">
+						{{
+							lang(
+								'welcome_desc',
+								'OCS 桌面软件是一款浏览器自动化工具，可以帮助你自动初始化浏览器环境、脚本管理器拓展与用户脚本，支持浏览器多开管理、自动登录、自动安装用户脚本等，让浏览器自动化变得简单高效。'
+							)
+						}}
+					</p>
+					<p class="welcome-tip">
+						{{ lang('welcome_init_tip', '使用软件前需要初始化一下环境，点击下方按钮开始！') }}
+					</p>
+					<div
+						class="text-center"
+						style="margin-top: 20px"
+					>
+						<a-button
+							type="primary"
+							size="large"
+							@click="store.render.state.welcome = false"
+						>
+							{{ lang('welcome_start_btn', '开始初始化') }}
+						</a-button>
+					</div>
+				</div>
+			</a-modal>
+
 			<!-- 全局：一键安装 -->
-			<Setup
-				v-model:visible="store.render.state.setup"
-				:auto-setup="true"
-				:preset-steps="[
-					'show_desc',
-					'init_env',
-					'new_browser',
-					'init_automationScript',
-					'init_extensions',
-					'init_script',
-					'update_env'
-				]"
-				@finish="
-					() => {
-						store.render.state.setup = false;
-					}
-				"
-			></Setup>
+			<template v-if="!store.render.state.welcome">
+				<Setup
+					v-model:visible="store.render.state.setup"
+					:auto-setup="true"
+					:preset-steps="[
+						'show_desc',
+						'init_env',
+						'new_browser',
+						'init_automationScript',
+						'init_extensions',
+						'init_script',
+						'update_env'
+					]"
+					@finish="
+						() => {
+							store.render.state.setup = false;
+						}
+					"
+				></Setup>
+			</template>
 
 			<!-- 全局：新建浏览器自动初始化 -->
 			<Setup
@@ -73,7 +115,7 @@
 
 <script setup lang="ts">
 import { watch, onMounted, onUnmounted } from 'vue';
-import { store } from './store';
+import { store, lang } from './store';
 import { remote } from './utils/remote';
 import { root } from './fs/folder';
 import { electron } from './utils/node';
@@ -289,6 +331,25 @@ function onResize() {
 
 .arco-message-list {
 	top: calc(40px + var(--title-height)) !important;
+}
+
+.welcome-title {
+	font-size: 16px;
+	font-weight: 600;
+}
+
+.welcome-body {
+	.welcome-desc {
+		color: #4e5969;
+		line-height: 1.8;
+		margin-bottom: 16px;
+	}
+
+	.welcome-tip {
+		color: #1d2129;
+		font-weight: 500;
+		margin-bottom: 0;
+	}
 }
 
 /* 新手教程遮罩层 */

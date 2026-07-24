@@ -83,6 +83,8 @@ export type WebStore = {
 	state: {
 		/** 是否展示初始化设置  */
 		setup: boolean;
+		/** 是否展示「欢迎使用」引导弹窗（首次进入且需要初始化时显示，点击「开始初始化」后关闭） */
+		welcome: boolean;
 		/** 是否展示「新建浏览器自动初始化」弹窗 */
 		newBrowserSetup: boolean;
 		mini: boolean;
@@ -172,6 +174,7 @@ export const DEFAULT_RENDER = {
 	state: {
 		first: true,
 		setup: true,
+		welcome: true,
 		newBrowserSetup: false,
 		mini: false,
 		responsive: 'small',
