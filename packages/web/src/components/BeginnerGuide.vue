@@ -21,8 +21,8 @@
 			type="dot"
 		>
 			<a-step
-				:title="lang('beginner_guide_step1_title', '初始化软件设置')"
-				:description="lang('beginner_guide_step1_desc', '浏览器环境正常后即完成')"
+				:title="t('beginner_guide_step1_title', '初始化软件设置')"
+				:description="t('beginner_guide_step1_desc', '浏览器环境正常后即完成')"
 				:status="step1Status"
 			>
 				<template #icon>
@@ -30,8 +30,8 @@
 				</template>
 			</a-step>
 			<a-step
-				:title="lang('beginner_guide_step2_title', '启动浏览器')"
-				:description="lang('beginner_guide_step2_desc', '成功启动浏览器后即完成')"
+				:title="t('beginner_guide_step2_title', '启动浏览器')"
+				:description="t('beginner_guide_step2_desc', '成功启动浏览器后即完成')"
 				:status="step2Status"
 			>
 				<template #icon>
@@ -45,7 +45,7 @@
 <script setup lang="ts">
 import { computed, onMounted, watch } from 'vue';
 import Icon from './Icon.vue';
-import { store, lang } from '../store';
+import { store, t } from '../store';
 import { useEnvironmentDetect } from '../composables/useEnvironmentDetect';
 import { processes } from '../utils/process';
 

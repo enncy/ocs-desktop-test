@@ -232,7 +232,7 @@
 </template>
 
 <script setup lang="ts">
-import { lang, store } from '../store';
+import { t, store } from '../store';
 import { download, sleep } from '../utils';
 import { remote } from '../utils/remote';
 import { reactive, watch, nextTick, onMounted } from 'vue';
@@ -263,7 +263,7 @@ type Step = {
 const _preset_steps = {
 	show_desc: {
 		title: '等待初始化...',
-		description: lang('setup_modal_notice', ''),
+		description: t('setup_modal_notice', ''),
 		action() {}
 	} as Step,
 	init_env: {
@@ -280,7 +280,7 @@ const _preset_steps = {
 
 			// =========================== 安装新版本 ===========================
 			if (process.platform !== 'win32' && process.platform !== 'darwin') {
-				step.error = lang(
+				step.error = t(
 					'setup_error_un_support_platform_when_auto_download_new_version',
 					'当前系统不支持自动更新软件，请前往官网 https://docs.ocsjs.com \n手动下载最新软件并安装和启动。'
 				);
@@ -291,7 +291,7 @@ const _preset_steps = {
 			console.log(infos);
 			const app_download_url = infos?.versions[0].app_downloads?.[process.platform];
 			if (!app_download_url) {
-				step.error = lang(
+				step.error = t(
 					'setup_error_no_windows_download_url_when_auto_download_new_version',
 					`未找到 ${process.platform} 版本的下载地址，请前往官网 https://docs.ocsjs.com \n手动下载最新软件并安装和启动。`,
 					{ platform: process.platform }
@@ -306,7 +306,7 @@ const _preset_steps = {
 					(process.platform === 'win32' ? 'ocs-desktop-installer.exe' : 'ocs-desktop-installer.dmg')
 			);
 
-			step.description = lang(
+			step.description = t(
 				'setup_error_auto_download_new_version_when_no_valid_browser',
 				'无可用的浏览器，正在下载并更新软件至最新版本： ' + infos?.versions[0]?.tag,
 				{ version: infos?.versions[0]?.tag || '' }
@@ -421,7 +421,7 @@ const _preset_steps = {
 
 			// 检查是否为 MV2 拓展，如果是则报错
 			if (!supported_extension) {
-				step.description = lang(
+				step.description = t(
 					'setup_error_auto_download_new_extension_when_version_too_low',
 					'当前脚本管理器版本较低，需要更新拓展到最新MV3版本'
 				);
@@ -719,7 +719,7 @@ async function setup() {
 				title: '初始化完成',
 				status: 'finish',
 				async action(step) {
-					step.description = lang('setup_finish_notice', '');
+					step.description = t('setup_finish_notice', '');
 				}
 			});
 			state.current_step += 1;

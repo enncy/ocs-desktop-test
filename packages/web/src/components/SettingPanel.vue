@@ -267,7 +267,7 @@
 <script setup lang="ts">
 import Description from './Description.vue';
 import Path from './Path.vue';
-import { lang, store, DEFAULT_RENDER } from '../store';
+import { t, store, DEFAULT_RENDER } from '../store';
 import { remote } from '../utils/remote';
 import cloneDeep from 'lodash/cloneDeep';
 import BrowserPath from './setting/BrowserPath.vue';
@@ -316,7 +316,7 @@ async function onUserDataDirsFolderChange(previous: string, current: string) {
 function onSyncOCSConfig() {
 	store.render.setting.ocs.openSync = true;
 	Modal.success({
-		content: lang('setting_browser_ocs_config_sync_tip_v3', '已同步配置，请重启浏览器即可应用~')
+		content: t('setting_browser_ocs_config_sync_tip_v3', '已同步配置，请重启浏览器即可应用~')
 	});
 }
 

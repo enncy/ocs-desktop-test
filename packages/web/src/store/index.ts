@@ -244,7 +244,7 @@ export const files = reactive<File[]>([]);
 /** 打开的文件 */
 export const openedFiles = reactive(new Map<string, File>());
 
-export function lang(key: string, def?: string, params?: Record<string, any>) {
+export function t(key: string, def?: string, params?: Record<string, any>) {
 	let text = store.render.langs[key];
 	if (!text) {
 		text = def || '';

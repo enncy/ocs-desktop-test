@@ -26,7 +26,7 @@
 				<a-alert class="mb-2">
 					<span
 						v-html="
-							lang(
+							t(
 								'setting_ocs_sync_notes',
 								'选择不同平台进行脚本设置，然后开启同步即可全浏览器应用相同OCS脚本设置 <br /> 如果只有单个浏览器，则无需配置，直接前往浏览器设置即可。'
 							)
@@ -60,7 +60,7 @@
 <script setup lang="ts">
 import { onMounted, nextTick, onActivated, reactive, watch, ref, WatchStopHandle, onDeactivated } from 'vue';
 import { remote } from '../utils/remote';
-import { store as Store, lang } from '../store/index';
+import { store as Store, t } from '../store/index';
 import { themeState } from '../utils';
 import type { Project } from 'easy-us';
 

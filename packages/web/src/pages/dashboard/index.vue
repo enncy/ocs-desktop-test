@@ -6,7 +6,7 @@
 			class="mb-2"
 			banner
 			title="使用提示"
-			:html="lang('notice_dashboard_monitor_page_usage', '')"
+			:html="t('notice_dashboard_monitor_page_usage', '')"
 		/>
 
 		<div class="d-flex mb-1 align-items-center">
@@ -197,7 +197,7 @@ import { computed, watch, onMounted, nextTick } from 'vue';
 import { Process, processes } from '../../utils/process';
 import { useScreencastVisibility } from '../../composables/useScreencastVisibility';
 import BrowserOperators from '../../components/browsers/BrowserOperators.vue';
-import { lang, store } from '../../store';
+import { t, store } from '../../store';
 import Tags from '../../components/Tags.vue';
 import EntityOperator from '../../components/EntityOperator.vue';
 import Icon from '../../components/Icon.vue';

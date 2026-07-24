@@ -41,7 +41,7 @@
 		>
 			<div
 				class="text-secondary mb-2"
-				v-html="lang('notice_resources_page_other_extensions_add', '')"
+				v-html="t('notice_resources_page_other_extensions_add', '')"
 			></div>
 		</a-modal>
 
@@ -59,7 +59,7 @@
 				banner
 				title="使用提示"
 				:html="
-					lang('notice_resources_page_usage', '在此安装与管理脚本管理器及各类拓展资源，安装后将自动加载到浏览器中。')
+					t('notice_resources_page_usage', '在此安装与管理脚本管理器及各类拓展资源，安装后将自动加载到浏览器中。')
 				"
 			/>
 
@@ -268,7 +268,7 @@ import { ResourceFile } from '@ocs-desktop/common/src/api';
 import { resourceLoader } from '../utils/resources.loader';
 import Icon from './Icon.vue';
 import UsageAlertCollapse from './UsageAlertCollapse.vue';
-import { lang, store } from '../store/index';
+import { t, store } from '../store/index';
 import { Message } from '@arco-design/web-vue';
 import { child_process, electron } from '../utils/node';
 import { remote } from '../utils/remote';

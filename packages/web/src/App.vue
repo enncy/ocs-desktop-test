@@ -44,19 +44,19 @@
 				@cancel="store.render.state.welcome = false"
 			>
 				<template #title>
-					<span class="welcome-title">🚀 {{ lang('welcome_title', '欢迎使用 OCS 桌面软件') }}</span>
+					<span class="welcome-title">🚀 {{ t('welcome_title', '欢迎使用 OCS 桌面软件') }}</span>
 				</template>
 				<div class="welcome-body">
 					<p class="welcome-desc">
 						{{
-							lang(
+							t(
 								'welcome_desc',
 								'OCS 桌面软件是一款浏览器自动化工具，可以帮助你自动初始化浏览器环境、脚本管理器拓展与用户脚本，支持浏览器多开管理、自动登录、自动安装用户脚本等，让浏览器自动化变得简单高效。'
 							)
 						}}
 					</p>
 					<p class="welcome-tip">
-						{{ lang('welcome_init_tip', '使用软件前需要初始化一下环境，点击下方按钮开始！') }}
+						{{ t('welcome_init_tip', '使用软件前需要初始化一下环境，点击下方按钮开始！') }}
 					</p>
 					<div
 						class="text-center"
@@ -67,7 +67,7 @@
 							size="large"
 							@click="store.render.state.welcome = false"
 						>
-							{{ lang('welcome_start_btn', '开始初始化') }}
+							{{ t('welcome_start_btn', '开始初始化') }}
 						</a-button>
 					</div>
 				</div>
@@ -115,7 +115,7 @@
 
 <script setup lang="ts">
 import { watch, onMounted, onUnmounted } from 'vue';
-import { store, lang } from './store';
+import { store, t } from './store';
 import { remote } from './utils/remote';
 import { root } from './fs/folder';
 import { electron } from './utils/node';

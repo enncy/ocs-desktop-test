@@ -1,6 +1,6 @@
 import { ChildProcess } from 'child_process';
 import { remote } from './remote';
-import { lang, store } from '../store';
+import { t, store } from '../store';
 import { LaunchOptions } from 'playwright-core';
 import { reactive } from 'vue';
 import type { ScriptWorker } from '@ocs-desktop/app';
@@ -167,7 +167,7 @@ export class Process extends EventEmitter {
 					if (!res) {
 						notify(
 							'本地脚本不存在',
-							lang('error_when_script_not_found', `本地脚本 ${s.info?.name}：(${s.url})\n不存在，请检查脚本路径`, {
+							t('error_when_script_not_found', `本地脚本 ${s.info?.name}：(${s.url})\n不存在，请检查脚本路径`, {
 								name: s.info?.name || '',
 								url: s.url
 							}),

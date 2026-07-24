@@ -15,21 +15,21 @@
 					banner
 					class="rounded"
 				>
-					<div>{{ lang('browser_page_environment_error_notice', '软件环境存在问题，将会影响浏览器的正常启动') }}</div>
+					<div>{{ t('browser_page_environment_error_notice', '软件环境存在问题，将会影响浏览器的正常启动') }}</div>
 
 					<div class="text-black fw-bold">
 						<template v-if="!envState.isCurrentBrowserSupported">
 							<div>
 								原因：{{
-									lang('browser_page_environment_error_current_browser_not_supported', '当前浏览器版本不受支持')
+									t('browser_page_environment_error_current_browser_not_supported', '当前浏览器版本不受支持')
 								}}
 							</div>
 						</template>
 						<template v-else-if="!envState.supportedBrowser">
-							<div>原因：{{ lang('browser_page_environment_error_no_browser_detected', '未检测到可用的浏览器') }}</div>
+							<div>原因：{{ t('browser_page_environment_error_no_browser_detected', '未检测到可用的浏览器') }}</div>
 						</template>
 						<template v-else-if="!envState.supportedExtension">
-							<div>原因：{{ lang('browser_page_environment_error_no_extension_detected', '未安装脚本管理器') }}</div>
+							<div>原因：{{ t('browser_page_environment_error_no_extension_detected', '未安装脚本管理器') }}</div>
 						</template>
 					</div>
 
@@ -77,7 +77,7 @@
 
 <script setup lang="ts">
 import Setup, { PresetSteps } from './Setup.vue';
-import { lang } from '../store';
+import { t } from '../store';
 import { useEnvironmentDetect } from '../composables/useEnvironmentDetect';
 import { useResources } from '../composables/useResources';
 import { onMounted, watch } from 'vue';

@@ -5,7 +5,7 @@
 			<div>
 				<a-tooltip position="rt">
 					<template #content>
-						<div v-html="lang('setting_browser_path_custom_tip', '')"></div>
+						<div v-html="t('setting_browser_path_custom_tip', '')"></div>
 					</template>
 
 					<a-switch
@@ -97,7 +97,7 @@ import { forceClearBrowserCache } from '../../utils/browser';
 import { onMounted, reactive } from 'vue';
 import { ValidBrowser } from '@ocs-desktop/common/lib/src/interface';
 import { processes } from '../../utils/process';
-import { lang } from '../../store/index';
+import { t } from '../../store/index';
 
 const state = reactive({
 	validBrowsers: [] as ValidBrowser[],
