@@ -33,48 +33,50 @@
 				</div>
 			</template>
 
-			<div class="d-flex justify-content-center">
-				<a-pagination
-					:total="props.list.length"
-					:show-size-changer="false"
-					:show-quick-jumper="true"
-					:show-total="true"
-					:hide-on-single-page="true"
-					:default-current="1"
-					:default-page-size="state.pageSize"
-					@change="(page) => (state.page = page)"
-				>
-				</a-pagination>
-			</div>
+			<div class="selector-footer">
+				<div class="d-flex justify-content-center">
+					<a-pagination
+						:total="props.list.length"
+						:show-size-changer="false"
+						:show-quick-jumper="true"
+						:show-total="true"
+						:hide-on-single-page="true"
+						:default-current="1"
+						:default-page-size="state.pageSize"
+						@change="(page) => (state.page = page)"
+					>
+					</a-pagination>
+				</div>
 
-			<div class="mt-3">
-				<a-space class="d-flex justify-content-between">
-					<span v-if="props.multiple"> 共选中 {{ selected.length }} 个 </span>
-					<a-space>
-						<a-tooltip :content="removeAllText">
+				<div class="mt-3">
+					<a-space class="d-flex justify-content-between">
+						<span v-if="props.multiple"> 共选中 {{ selected.length }} 个 </span>
+						<a-space>
+							<a-tooltip :content="removeAllText">
+								<a-button
+									v-if="selected.length"
+									size="mini"
+									type="outline"
+									status="danger"
+									@click="removeAll"
+								>
+									<template #icon>
+										<icon-delete />
+									</template>
+								</a-button>
+							</a-tooltip>
+							<!-- 底部操作插槽：与确认按钮同一行，用于放置额外按钮（如“跳过该步骤”） -->
+							<slot name="actions" />
 							<a-button
-								v-if="selected.length"
-								size="mini"
-								type="outline"
-								status="danger"
-								@click="removeAll"
+								style="width: 100px"
+								type="primary"
+								@click="confirm"
 							>
-								<template #icon>
-									<icon-delete />
-								</template>
+								{{ confirmText }}
 							</a-button>
-						</a-tooltip>
-						<!-- 底部操作插槽：与确认按钮同一行，用于放置额外按钮（如“跳过该步骤”） -->
-						<slot name="actions" />
-						<a-button
-							style="width: 100px"
-							type="primary"
-							@click="confirm"
-						>
-							{{ confirmText }}
-						</a-button>
+						</a-space>
 					</a-space>
-				</a-space>
+				</div>
 			</div>
 		</template>
 	</div>
@@ -140,6 +142,16 @@ function isSelected(item: Item) {
 </script>
 
 <style scoped lang="less">
+.selector-footer {
+	position: sticky;
+	bottom: 0;
+	z-index: 1;
+	background: var(--color-bg-1);
+	margin-top: 8px;
+	padding-top: 8px;
+	border-top: 1px solid var(--color-fill-2);
+}
+
 .item {
 	border: 1px solid #e1e1e18c;
 	padding: 6px;
