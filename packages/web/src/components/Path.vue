@@ -4,6 +4,7 @@
 			:label="label"
 			:desc="realPath"
 			:text-class="'pointer'"
+			:text-style="{ fontSize: '12px' }"
 			@click="shell.showItemInFolder(realPath)"
 		>
 			<Icon

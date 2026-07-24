@@ -15,6 +15,7 @@
 				v-if="desc"
 				class="desc"
 				:class="textClass"
+				:style="textStyle"
 			>
 				{{ String(desc) }}
 			</span>
@@ -24,16 +25,18 @@
 </template>
 
 <script setup lang="ts">
-import { toRefs } from 'vue';
+import { CSSProperties, toRefs } from 'vue';
 interface DescriptionProps {
 	label?: string;
 	desc?: any;
 	textClass?: any;
+	textStyle?: CSSProperties;
 }
 const props = withDefaults(defineProps<DescriptionProps>(), {
 	label: '',
 	desc: '',
-	textClass: ''
+	textClass: '',
+	textStyle: undefined
 });
 const { label, desc, textClass } = toRefs(props);
 </script>
@@ -42,11 +45,9 @@ const { label, desc, textClass } = toRefs(props);
 .desc {
 	word-wrap: break-word;
 	word-break: break-all;
-	font-size: 14px;
 }
 
 .desc-label {
 	white-space: nowrap;
-	font-size: 16px;
 }
 </style>

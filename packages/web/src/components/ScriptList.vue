@@ -299,12 +299,15 @@ function getUrlVersion(url: string) {
 	border-bottom: 1px solid var(--theme-border-color);
 	border-radius: 4px;
 	padding: 8px 12px;
-	box-shadow: 0px 2px 4px 0px var(--theme-shadow-color);
+	box-shadow: 0 1px 2px var(--theme-shadow-color);
 	background-color: var(--theme-card-bg);
+	cursor: pointer;
+	transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .user-script-active {
-	box-shadow: 0px 2px 4px 0px var(--theme-primary-color);
+	transform: translateY(-2px);
+	box-shadow: 0 6px 16px var(--theme-shadow-color-strong);
 }
 
 .user-script + .user-script {

@@ -7,18 +7,44 @@
 						src="../../public/favicon.png"
 						width="22px"
 				/></span>
-				OCS脚本配置
+				<a-space>
+					OCS脚本配置
+					<a-tag
+						v-if="store.render.setting.ocs.openSync"
+						color="green"
+					>
+						<a-space> <IconCheckCircleFill /> 同步中 </a-space>
+					</a-tag>
+				</a-space>
 			</template>
 			<template #extra>
-				<a-button
-					type="primary"
-					size="small"
-					@click="onSyncOCSConfig"
-				>
-					同步配置到各浏览器
-				</a-button>
+				<a-space>
+					<a-tooltip
+						v-if="store.render.setting.ocs.openSync"
+						content="取消配置同步、每个浏览器可手动调整OCS脚本的设置"
+					>
+						<a-button
+							size="small"
+							@click="
+								() => {
+									store.render.setting.ocs.openSync = false;
+								}
+							"
+						>
+							<IconClose /> 取消配置同步
+						</a-button>
+					</a-tooltip>
+					<a-button
+						v-else
+						type="primary"
+						size="small"
+						@click="onSyncOCSConfig"
+					>
+						<IconSync />同步配置到各浏览器
+					</a-button>
+				</a-space>
 			</template>
-			<div class="mt-2">
+			<div>
 				<OCSConfigs v-model:store="store.render.setting.ocs.store"></OCSConfigs>
 			</div>
 		</a-card>
@@ -177,16 +203,16 @@
 		<a-card>
 			<template #title>
 				<span class="card-title-icon">📂</span>
-				路径设置
+				软件路径
 			</template>
 			<Path
-				label="浏览器缓存路径"
+				label="浏览器缓存"
 				name="userDataDirsFolder"
 				:setting="!simple"
 				@on-path-change="onUserDataDirsFolderChange"
 			/>
 			<Path
-				label="文件下载路径"
+				label="文件下载"
 				name="downloadFolder"
 			/>
 			<Path
@@ -194,7 +220,7 @@
 				name="user-data-path"
 			/>
 			<Path
-				label="软件路径"
+				label="可执行文件"
 				name="exe-path"
 			/>
 		</a-card>
@@ -227,6 +253,7 @@ import { forceClearBrowserCache } from '../utils/browser';
 import { Modal } from '@arco-design/web-vue';
 import { Folder } from '../fs/folder';
 import { Browser } from '../fs/browser';
+import { IconCheckCircleFill } from '@arco-design/web-vue/es/icon';
 
 interface SettingPanelProps {
 	simple?: boolean;
