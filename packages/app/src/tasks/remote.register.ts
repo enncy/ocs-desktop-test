@@ -23,6 +23,18 @@ import { hideToTray, showMainWindow, quitApp, cancelQuit, destroyTray } from '..
 export type RawAutomationScript = Pick<AutomationScript, 'configs' | 'name'>;
 
 /**
+ * 将错误序列化为可跨 IPC 传输的普通对象。
+ * Electron 的 structured clone 对 Error 支持不完整（message/stack 会丢失），
+ * 因此在跨进程传递前统一拍平为普通对象，渲染进程侧通过 __error 标记还原。
+ */
+function serializeError(e: any) {
+	if (e instanceof Error) {
+		return { __error: true, name: e.name, message: e.message, stack: e.stack };
+	}
+	return { __error: true, message: String(e) };
+}
+
+/**
  * 注册主进程远程通信事件
  * @param name 事件前缀名称
  * @param target 事件目标
@@ -36,7 +48,7 @@ function registerRemoteEvent(name: string, target: any) {
 					// logger.info({ event: name + '-get', args: [property] });
 					event.returnValue = target[property];
 				} catch (e) {
-					event.returnValue = { error: e };
+					event.returnValue = { error: serializeError(e) };
 				}
 			})
 			.on(name + '-set', (event, [property, value]) => {
@@ -44,7 +56,7 @@ function registerRemoteEvent(name: string, target: any) {
 					// logger.info({ event: name + '-set', args: [property, value] });
 					event.returnValue = target[property] = value;
 				} catch (e) {
-					event.returnValue = { error: e };
+					event.returnValue = { error: serializeError(e) };
 				}
 			})
 
@@ -65,7 +77,7 @@ function registerRemoteEvent(name: string, target: any) {
 						const result = await target[property](...args);
 						event.reply(respondChannel, { data: result });
 					} catch (e) {
-						event.reply(respondChannel, { error: e });
+						event.reply(respondChannel, { error: serializeError(e) });
 					}
 				}
 			)
@@ -77,7 +89,7 @@ function registerRemoteEvent(name: string, target: any) {
 					const result = target[property](...args);
 					event.returnValue = { data: result };
 				} catch (e) {
-					event.returnValue = { error: e };
+					event.returnValue = { error: serializeError(e) };
 				}
 			});
 	} catch (err) {

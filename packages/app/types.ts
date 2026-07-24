@@ -2,6 +2,7 @@ import { OriginalAppStore } from './src/store';
 import { ScriptWorker } from './src/worker';
 
 export { RemoteMethods } from './src/tasks/remote.register';
+export { LoggerCore } from './src/logger.core';
 export type AppStore = typeof OriginalAppStore;
 
 export { ScriptWorker };
