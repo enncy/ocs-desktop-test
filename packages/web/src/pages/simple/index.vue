@@ -83,6 +83,18 @@
 											>
 												<Icon type="hourglass_top" /> 等待截图...
 											</div>
+											<!-- 中心查看大图按钮 -->
+											<div
+												v-if="getProcess(browser.uid)?.frameUrl"
+												class="card-screenshot-view"
+												@click.stop="openPreview(browser)"
+											>
+												<Icon
+													type="visibility"
+													class="view-icon"
+												/>
+												<span class="view-text">点击查看</span>
+											</div>
 											<!-- 标题浮于截图上方 -->
 											<div class="card-screenshot-overlay">
 												<div class="card-name-text card-name-white">
@@ -208,6 +220,35 @@
 				</div>
 			</div>
 		</div>
+		<!-- 截图大图预览弹窗 -->
+		<a-modal
+			v-model:visible="previewVisible"
+			:footer="false"
+			width="auto"
+			:mask-closable="true"
+			unmount-on-close
+			:fullscreen="true"
+		>
+			<template #title>
+				<div class="preview-title">
+					<span class="d-flex align-items-center gap-2"> <Icon type="web" /> {{ previewBrowserName }} - 预览中 </span>
+					<BrowserOperators
+						v-if="previewBrowser"
+						:browser="previewBrowser"
+						tooltip-position="bottom"
+						icon-class="fs-5"
+						class="me-3"
+						:actions="['front']"
+					/>
+				</div>
+			</template>
+			<img
+				v-if="getProcess(previewUid)?.frameUrl"
+				:src="getProcess(previewUid)?.frameUrl"
+				alt="浏览器预览"
+				class="screenshot-preview-img"
+			/>
+		</a-modal>
 	</CommonEditActionDropdown>
 </template>
 
@@ -275,6 +316,23 @@ function selectBrowser(browser: BrowserOptions) {
 /** 新增浏览器 */
 function handleAddBrowser() {
 	newBrowserOrInit();
+}
+
+/** 截图大图预览弹窗状态 */
+const previewVisible = ref(false);
+const previewUid = ref('');
+const previewBrowserName = ref('');
+
+/** 当前预览的浏览器对象（用于弹窗内操作按钮） */
+const previewBrowser = computed(() => allBrowsers.value.find((b) => b.uid === previewUid.value));
+
+/** 打开截图大图预览 */
+function openPreview(browser: BrowserOptions) {
+	if (getProcess(browser.uid)?.frameUrl) {
+		previewUid.value = browser.uid;
+		previewBrowserName.value = browser.name;
+		previewVisible.value = true;
+	}
 }
 
 /** 重命名临时值 */
@@ -365,7 +423,11 @@ onMounted(() => {
 	}
 
 	// 有截图时：隐藏 header，body 零内边距，截图铺满卡片
+	// 卡片自身 overflow:hidden 配合圆角统一裁剪截图，避免 body 圆角小于
+	// 卡片内圆角时截图背景溢出、遮挡卡片 border 四个角（hover 激活边框）
 	&.has-screenshot {
+		overflow: hidden;
+
 		:deep(.arco-card-header) {
 			display: none;
 		}
@@ -373,7 +435,6 @@ onMounted(() => {
 		:deep(.arco-card-body) {
 			padding: 0;
 			overflow: hidden;
-			border-radius: 8px;
 		}
 	}
 
@@ -460,13 +521,58 @@ onMounted(() => {
 	font-size: 12px;
 }
 
+/* 中心查看大图按钮：hover 截图区域时显示，图标文案蓝色、背景透明 */
+.card-screenshot-view {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	z-index: 2;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 14px 22px;
+	border-radius: var(--border-radius-medium);
+	background-color: transparent;
+	color: var(--theme-primary-color);
+	cursor: pointer;
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 0.2s ease, transform 0.2s ease;
+	user-select: none;
+	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+
+	.view-icon {
+		font-size: 30px;
+		line-height: 1;
+	}
+
+	.view-text {
+		font-size: 12px;
+		line-height: 1;
+		letter-spacing: 0.5px;
+	}
+
+	&:hover {
+		transform: translate(-50%, -50%) scale(1.05);
+	}
+}
+
+/* 鼠标移入截图区域时显示查看按钮 */
+.card-screenshot:hover .card-screenshot-view {
+	opacity: 1;
+	pointer-events: auto;
+}
+
 .add-card {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	justify-content: center;
 	min-height: 120px;
-	border: 1px dashed var(--theme-border-color-light);
+	border: 1px dashed var(--theme-border-color-strong);
 	background-color: transparent;
 
 	&:hover {
@@ -518,5 +624,23 @@ body[arco-theme='dark'] & {
 
 :deep(.arco-card-meta-footer) {
 	align-items: start !important;
+}
+
+/* 弹窗标题：浏览器名 + 操作按钮 */
+.preview-title {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	width: 100%;
+}
+
+/* 截图大图预览弹窗 */
+.screenshot-preview-img {
+	display: block;
+	width: 100%;
+	max-height: 80vh;
+	object-fit: contain;
+	background-color: #000;
 }
 </style>

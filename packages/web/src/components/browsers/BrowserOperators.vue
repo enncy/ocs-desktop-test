@@ -4,7 +4,7 @@
 		:size="4"
 		class="justify-content-end align-items-center browser-operators"
 	>
-		<template v-if="process === undefined || process.status === 'closed'">
+		<template v-if="(process === undefined || process.status === 'closed') && actions.includes('launch')">
 			<a-tooltip
 				:position="tooltipPosition"
 				mini
@@ -30,8 +30,9 @@
 			</a-tooltip>
 		</template>
 
-		<template v-else-if="process.status === 'launched'">
+		<template v-else-if="process?.status === 'launched'">
 			<a-tooltip
+				v-if="actions.includes('front')"
 				content="置顶"
 				:position="tooltipPosition"
 			>
@@ -49,6 +50,7 @@
 			</a-tooltip>
 
 			<a-tooltip
+				v-if="actions.includes('relaunch')"
 				content="重启"
 				:position="tooltipPosition"
 			>
@@ -66,6 +68,7 @@
 			</a-tooltip>
 
 			<a-tooltip
+				v-if="actions.includes('close')"
 				content="关闭"
 				:position="tooltipPosition"
 			>
@@ -84,7 +87,7 @@
 		</template>
 
 		<!-- 加载中 -->
-		<template v-else-if="process.status === 'launching' || process.status === 'closing'">
+		<template v-else-if="process?.status === 'launching' || process?.status === 'closing'">
 			<a-button
 				type="text"
 				size="mini"
@@ -108,12 +111,14 @@ import { BrowserOptions } from '../../fs/interface';
 const props = withDefaults(
 	defineProps<{
 		browser: BrowserOptions;
-		tooltipPosition?: 'top' | 'br';
+		tooltipPosition?: 'top' | 'br' | 'bottom';
 		iconClass?: string;
+		actions?: ('launch' | 'front' | 'relaunch' | 'close')[];
 	}>(),
 	{
 		tooltipPosition: 'br',
-		iconClass: 'fs-6'
+		iconClass: 'fs-6',
+		actions: () => ['launch', 'front', 'relaunch', 'close']
 	}
 );
 const instance = Browser.from(props.browser.uid);
