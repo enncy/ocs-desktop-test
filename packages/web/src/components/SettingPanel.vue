@@ -73,7 +73,7 @@
 
 			<Description label="后台运行">
 				<a-tooltip
-					content="启用后，关闭软件窗口时将自动隐藏到系统托盘后台运行（浏览器与自动化任务保持运行）。左键单击托盘图标可重新打开，右键托盘图标可选择「退出」完全关闭。"
+					content="启用后，关闭窗口将自动隐藏到系统托盘后台运行；未启用时，若有浏览器运行，将询问关闭并退出或移动至托盘。左键单击托盘图标可重新打开，右键选择「退出」完全关闭。"
 				>
 					<a-switch v-model="store.window.hideToTrayOnClose" />
 				</a-tooltip>
@@ -294,7 +294,7 @@ withDefaults(defineProps<SettingPanelProps>(), {
 async function reset() {
 	// 仅重置软件设置为默认值，保留浏览器分身、脚本、路径等用户数据
 	store.render.setting = cloneDeep(DEFAULT_RENDER.setting);
-	store.window = { alwaysOnTop: false, autoLaunch: false, hideToTrayOnClose: true };
+	store.window = { alwaysOnTop: false, autoLaunch: false, hideToTrayOnClose: false };
 	// 同步保存，确保重置落盘后再重启（不依赖关闭流程的保存时序，避免强制退出时丢失）
 	const shouldEncrypt = remote.methods.callSync('isEncryptionAvailable');
 	remote.methods.callSync('saveStore', JSON.stringify(store), shouldEncrypt);

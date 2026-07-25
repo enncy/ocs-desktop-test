@@ -119,7 +119,8 @@ import { store, t } from './store';
 import { remote } from './utils/remote';
 import { root } from './fs/folder';
 import { electron } from './utils/node';
-import { closeAllBrowser, showClearBrowserCachesModal } from './utils/browser';
+import { closeAllBrowser, showClearBrowserCachesModal, askCloseOrTray } from './utils/browser';
+import { processes } from './utils/process';
 import {
 	changeTheme,
 	fetchRemoteNotify,
@@ -249,9 +250,9 @@ onMounted(async () => {
 	let isExiting = false;
 
 	/** 完整退出流程：关闭浏览器 + 保存数据 + 退出应用。返回 false 表示用户取消了关闭 */
-	async function performFullExit() {
+	async function performFullExit(skipBrowserConfirm = false) {
 		console.log('关闭浏览器中...');
-		const res = await closeAllBrowser();
+		const res = await closeAllBrowser(skipBrowserConfirm);
 		if (res === false) {
 			console.log('有浏览器拒绝关闭，取消退出');
 			return false;
@@ -276,6 +277,28 @@ onMounted(async () => {
 			remote.methods.call('hideToTray');
 			return;
 		}
+		// 后台运行未开启：若仍有浏览器正在运行，询问「关闭并退出」还是「移动至托盘运行」
+		if (processes.length > 0) {
+			// 询问期间占位防重入，取消/移动至托盘时复位
+			isExiting = true;
+			const choice = await askCloseOrTray();
+			if (choice === 'tray') {
+				isExiting = false;
+				remote.methods.call('hideToTray');
+				return;
+			}
+			if (choice === 'cancel') {
+				isExiting = false;
+				return;
+			}
+			// choice === 'exit'：用户已确认关闭，跳过 closeAllBrowser 的二次确认弹窗
+			if (!(await performFullExit(true))) {
+				isExiting = false;
+				remote.methods.call('cancelQuit');
+			}
+			return;
+		}
+		// 无浏览器运行：直接执行完整退出流程
 		isExiting = true;
 		if (!(await performFullExit())) {
 			// 用户取消了关闭浏览器，复位退出标记与程序化退出标记，恢复「隐藏到托盘」能力

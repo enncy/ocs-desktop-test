@@ -1,5 +1,5 @@
 import { h } from 'vue';
-import { Button, Message, Modal } from '@arco-design/web-vue';
+import { Button, Message, Modal, Space } from '@arco-design/web-vue';
 import { IconSync } from '@arco-design/web-vue/es/icon';
 import { size, sleep } from '.';
 import { remote } from './remote';
@@ -251,44 +251,93 @@ export async function forceClearBrowserCache(title: string, userDataDirsFolder: 
 }
 
 /**
- * @returns 是否同意关闭软件
+ * 强制关闭所有正在运行的浏览器（不弹确认框，仅显示「关闭中」提示）。
+ *
+ * 最久 5 秒后强制退出软件，避免浏览器无法关闭时卡住或重复弹窗。
  */
-export async function closeAllBrowser() {
-	if (processes.length) {
-		return new Promise<boolean>((resolve, reject) => {
-			Modal.warning({
-				content: '还有浏览器正在运行，您确定关闭软件吗？',
-				title: '警告',
-				maskClosable: true,
-				closable: true,
-				alignCenter: true,
-				hideCancel: false,
-				onOk: async () => {
-					const m = Modal.info({
-						content: '正在关闭所有浏览器...',
-						closable: false,
-						maskClosable: false,
-						footer: false
-					});
+export async function forceCloseAllBrowsers() {
+	if (!processes.length) return;
+	const m = Modal.info({
+		content: '正在关闭所有浏览器...',
+		closable: false,
+		maskClosable: false,
+		footer: false
+	});
 
-					// 最久5秒后强制退出软件，避免浏览器无法关闭时卡住或重复弹窗
-					const timeout = setTimeout(() => remote.methods.call('quitApp', 0), 5000);
-					try {
-						for (const process of processes) {
-							await process.close();
-							await sleep(100);
-						}
-					} catch (err) {
-						Message.error(String(err));
-					}
-					clearTimeout(timeout);
-					m.close();
-					resolve(true);
-				},
-				onCancel() {
-					resolve(false);
-				}
-			});
-		});
+	// 最久5秒后强制退出软件，避免浏览器无法关闭时卡住或重复弹窗
+	const timeout = setTimeout(() => remote.methods.call('quitApp', 0), 5000);
+	try {
+		for (const process of processes) {
+			await process.close();
+			await sleep(100);
+		}
+	} catch (err) {
+		Message.error(String(err));
 	}
+	clearTimeout(timeout);
+	m.close();
+}
+
+/**
+ * 关闭所有浏览器。若有正在运行的浏览器，弹窗询问是否关闭。
+ *
+ * @param skipConfirm 是否跳过确认弹窗（调用方已确认过时使用，直接强制关闭）
+ * @returns 是否同意关闭软件（用户取消时返回 false）
+ */
+export async function closeAllBrowser(skipConfirm = false) {
+	if (!processes.length) return true;
+	if (skipConfirm) {
+		await forceCloseAllBrowsers();
+		return true;
+	}
+	return new Promise<boolean>((resolve) => {
+		Modal.warning({
+			content: '还有浏览器正在运行，您确定关闭软件吗？',
+			title: '警告',
+			maskClosable: true,
+			closable: true,
+			alignCenter: true,
+			hideCancel: false,
+			onOk: async () => {
+				await forceCloseAllBrowsers();
+				resolve(true);
+			},
+			onCancel() {
+				resolve(false);
+			}
+		});
+	});
+}
+
+/**
+ * 当「后台运行」未开启且仍有浏览器正在运行时，询问用户如何处理关闭操作。
+ *
+ * @returns 'exit' 关闭并退出 | 'tray' 后台运行 | 'cancel' 取消
+ */
+export function askCloseOrTray() {
+	return new Promise<'exit' | 'tray' | 'cancel'>((resolve) => {
+		let settled = false;
+		let modal: { close: () => void } | null = null;
+		const done = (result: 'exit' | 'tray' | 'cancel') => {
+			if (settled) return;
+			settled = true;
+			modal?.close();
+			resolve(result);
+		};
+		modal = Modal.warning({
+			title: '提示',
+			content: '检测到仍有浏览器正在运行，是否关闭并退出软件？',
+			maskClosable: true,
+			closable: true,
+			alignCenter: true,
+			escToClose: true,
+			onCancel: () => done('cancel'),
+			footer: () =>
+				h(Space, null, [
+					h(Button, { onClick: () => done('cancel') }, '取消'),
+					h(Button, { type: 'primary', onClick: () => done('tray') }, '后台运行'),
+					h(Button, { type: 'primary', status: 'danger', onClick: () => done('exit') }, '关闭并退出')
+				])
+		});
+	});
 }
