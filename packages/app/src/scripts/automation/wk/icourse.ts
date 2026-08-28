@@ -128,13 +128,37 @@ export const ICourseLoginScript = new AutomationScript(
  * 已登录时导航栏显示用户信息，无 .navLoginBtn。
  */
 async function isNotLogin(page: Page): Promise<boolean> {
-	await page.goto(HOME_URL, { waitUntil: 'domcontentloaded' });
+	// commit：导航提交即返回，不等待 domcontentloaded——
+	// React SPA 首屏在真实环境（扩展注入/网络波动）可能十余秒，等待其完成是「自动登录开始前等 20s」的主因之一
+	await page
+		.goto(HOME_URL, { waitUntil: 'commit', timeout: 15000 })
+		.catch(() => {});
+	// 页面为 React SPA，导航栏由 JS 动态渲染：等待导航容器或登录按钮任一出现，
+	// 避免 bundle 未执行时误判（已登录无按钮）/ 干等到超时
+	await Promise.race([
+		page.waitForSelector('.web-nav-container', { timeout: 8000 }),
+		page.waitForSelector(SEL.loginBtn, { timeout: 8000 })
+	]).catch(() => {});
+	// 导航渲染完成后，登录按钮应在短时间内可见
 	try {
-		await page.waitForSelector(SEL.loginBtn, { timeout: 20000 });
+		await page.waitForSelector(SEL.loginBtn, { timeout: 3000 });
 		return true;
 	} catch {
 		return false;
 	}
+}
+
+/** 登录模态框是否可见（evaluate 快速失败，避免默认 30s 等待不存在的元素） */
+function isModalOpen(page: Page): Promise<boolean> {
+	return page
+		.locator('.ux-modal.web-login-modal')
+		.first()
+		.evaluate(
+			(el) => !!(el as HTMLElement).offsetWidth || !!(el as HTMLElement).offsetHeight,
+			undefined,
+			{ timeout: 500 }
+		)
+		.catch(() => false);
 }
 
 /** 同意隐私协议（幂等）：首次访问弹出 #privacy-ok，已同意过则元素不存在 */
@@ -148,15 +172,28 @@ async function agreePrivacy(page: Page): Promise<void> {
 
 /** 打开登录模态框（幂等：已打开则跳过） */
 async function openLoginModal(page: Page): Promise<void> {
-	const opened = await page
-		.locator('.ux-modal.web-login-modal')
-		.first()
-		.evaluate((el) => !!(el as HTMLElement).offsetWidth || !!(el as HTMLElement).offsetHeight)
-		.catch(() => false);
-	if (!opened) await page.click(SEL.loginBtn, { timeout: 15000 });
-	// 等待登录表单 iframe 渲染完成
-	await page.waitForSelector(`${SEL.phoneFrame}, ${SEL.mailFrame}`, { timeout: 15000 }).catch(() => {});
-	await page.waitForTimeout(1500);
+	const opened = await isModalOpen(page);
+	if (!opened) {
+		// 先确认登录按钮存在（导航刚渲染完，最长等 5s），再点击；
+		// 避免 waitForClickable 在按钮未就绪时空等 15s
+		await page
+			.locator(SEL.loginBtn)
+			.first()
+			.waitFor({ state: 'attached', timeout: 5000 })
+			.catch(() => {});
+		await page.click(SEL.loginBtn, { timeout: 5000, force: true }).catch(() => {});
+	}
+	// 轮询登录表单 iframe 出现（最多 10s）。
+	// 用 page.$ + boundingBox 快速失败检查：locator.evaluate 会先等元素 attached（默认 30s），
+	// iframe 未出现时会空等 30s 超时 —— 这是「登录模态框就绪 +30s」的根因。
+	for (let i = 0; i < 20; i++) {
+		const handle = await page.$(`${SEL.phoneFrame}, ${SEL.mailFrame}`).catch(() => null);
+		if (handle) {
+			const box = await handle.boundingBox().catch(() => null);
+			if (box && box.width > 0) break;
+		}
+		await page.waitForTimeout(500);
+	}
 }
 
 /**
@@ -167,7 +204,7 @@ async function switchTab(page: Page, tab: 'phone' | 'mail'): Promise<void> {
 	const sel = tab === 'phone' ? SEL.phoneTab : SEL.mailTab;
 	const active = await page
 		.locator(sel)
-		.evaluate((el) => el.classList.contains('z-sel'))
+		.evaluate((el) => el.classList.contains('z-sel'), undefined, { timeout: 500 })
 		.catch(() => false);
 	if (!active) {
 		await page.click(sel);
@@ -175,11 +212,21 @@ async function switchTab(page: Page, tab: 'phone' | 'mail'): Promise<void> {
 	}
 }
 
-/** 获取登录表单 iframe（按账号类型定位对应容器内的 iframe） */
+/** 获取登录表单 iframe（按账号类型定位对应容器内的 iframe），并等待 iframe 内输入框可用 */
 async function getLoginFrame(page: Page, tab: 'phone' | 'mail'): Promise<Frame | null> {
 	const sel = tab === 'phone' ? SEL.phoneFrame : SEL.mailFrame;
 	const handle = await page.$(sel).catch(() => null);
-	return handle ? handle.contentFrame() : null;
+	if (!handle) return null;
+	const frame = await handle.contentFrame().catch(() => null);
+	if (!frame) return null;
+	// 跨域 iframe 内部文档加载独立于父页面：以输入框可用为最终判据（最长 10s）
+	try {
+		const inputSel = tab === 'phone' ? SEL.phoneInput : SEL.mailInput;
+		await frame.waitForSelector(inputSel, { timeout: 10000 });
+	} catch {
+		return null;
+	}
+	return frame;
 }
 
 /**
@@ -220,19 +267,21 @@ async function loopVerify(
 	}
 }
 
-/** 易盾滑块是否可见（.yidun 容器） */
+/** 易盾滑块是否可见（.yidun 容器）；frame 已分离视为不可见 */
 async function isCaptchaVisible(frame: Frame): Promise<boolean> {
-	return frame.evaluate(() => {
-		const el = document.querySelector('.yidun');
-		return !!el && !!(el as HTMLElement).offsetWidth;
-	});
+	return frame
+		.evaluate(() => {
+			const el = document.querySelector('.yidun');
+			return !!el && !!(el as HTMLElement).offsetWidth;
+		})
+		.catch(() => false);
 }
 
 /** 轮询等待易盾滑块出现，最多约 10s */
 async function waitForCaptcha(frame: Frame): Promise<boolean> {
 	for (let i = 0; i < 25; i++) {
 		if (await isCaptchaVisible(frame)) return true;
-		await frame.waitForTimeout(400);
+		await frame.waitForTimeout(400).catch(() => {});
 	}
 	return false;
 }
@@ -242,14 +291,17 @@ async function waitForCaptcha(frame: Frame): Promise<boolean> {
  */
 async function tryRefreshCaptcha(page: Page, frame: Frame): Promise<void> {
 	const getBgSrc = () =>
-		frame.evaluate(() => (document.querySelector('.yidun_bg-img') as HTMLImageElement | null)?.src || '');
+		frame
+			.evaluate(() => (document.querySelector('.yidun_bg-img') as HTMLImageElement | null)?.src || '')
+			.catch(() => '');
 	const before = await getBgSrc();
-	await frame.click(SEL.captchaRefresh).catch(() => {});
+	// click 默认 30s 等待：刷新/关闭按钮不存在时必须快速失败
+	await frame.click(SEL.captchaRefresh, { timeout: 1500 }).catch(() => {});
 	await frame.waitForTimeout(1000);
 	if ((await getBgSrc()) === before) {
-		await frame.click(SEL.captchaClose).catch(() => {});
+		await frame.click(SEL.captchaClose, { timeout: 1500 }).catch(() => {});
 		await frame.waitForTimeout(400);
-		await frame.click(SEL.submit, { force: true }).catch(() => {});
+		await frame.click(SEL.submit, { force: true, timeout: 1500 }).catch(() => {});
 		await waitForCaptcha(frame);
 	}
 }
@@ -384,12 +436,14 @@ async function servoDrag(page: Page, frame: Frame, sx: number, sy: number, targe
 	await page.mouse.up();
 }
 
-/** 读拼图当前位移（img.yidun_jigsaw 的 style.left，相对背景图左缘） */
+/** 读拼图当前位移（img.yidun_jigsaw 的 style.left，相对背景图左缘）；frame 已分离返回 0 */
 function readPieceLeft(frame: Frame) {
-	return frame.evaluate(() => {
-		const el = document.querySelector('.yidun_jigsaw') as HTMLElement | null;
-		return el ? parseFloat(el.style.left) || 0 : 0;
-	});
+	return frame
+		.evaluate(() => {
+			const el = document.querySelector('.yidun_jigsaw') as HTMLElement | null;
+			return el ? parseFloat(el.style.left) || 0 : 0;
+		})
+		.catch(() => 0);
 }
 
 /**
@@ -399,47 +453,59 @@ function readPieceLeft(frame: Frame) {
 async function readFormError(frame: Frame, timeoutMs = 2500): Promise<string | null> {
 	const start = Date.now();
 	while (true) {
-		const err = await frame.evaluate(() => {
-			for (const el of Array.from(document.querySelectorAll('.m-nerror'))) {
-				const box = el as HTMLElement;
-				if (!box.offsetWidth && !box.offsetHeight) continue;
-				const text = (box.textContent || '').trim();
-				if (text) return text;
-			}
-			return null;
-		});
+		const { err, detached } = await frame
+			.evaluate(() => {
+				for (const el of Array.from(document.querySelectorAll('.m-nerror'))) {
+					const box = el as HTMLElement;
+					if (!box.offsetWidth && !box.offsetHeight) continue;
+					const text = (box.textContent || '').trim();
+					if (text) return { err: text, detached: false };
+				}
+				return { err: null, detached: false };
+			})
+			.catch(() => ({ err: null, detached: true }));
 		if (err) return err;
+		// frame 已分离（登录成功后 iframe 被销毁）→ 无表单错误，立即结束轮询
+		if (detached) return null;
 		if (Date.now() - start >= timeoutMs) return null;
-		await frame.waitForTimeout(300);
+		await frame.waitForTimeout(300).catch(() => {});
+	}
+}
+
+/** frame 是否已分离（登录成功后登录 iframe 会被页面销毁） */
+function isFrameDetached(page: Page, frame: Frame): boolean {
+	try {
+		return !page.frames().includes(frame);
+	} catch {
+		return true;
 	}
 }
 
 /**
  * 是否尚未通过验证（true = 继续循环重试）。
  * - 登录模态框已关闭（父页面）→ 已通过（false）
+ * - frame 已分离（iframe 销毁）→ 已通过（false）
  * - URS 表单错误提示（账号/密码错误等）→ 直接抛错
  * - 易盾提示文本非默认（验证失败/操作过快等）→ 重试
  */
 async function isNotVerified(page: Page, frame: Frame): Promise<boolean> {
 	await page.waitForTimeout(2000);
 
+	// 模态框关闭 → 登录成功（iframe 可能已销毁，优先于 frame 操作判断，避免 Frame was detached）
+	if (!(await isModalOpen(page))) return false;
+
+	// frame 已分离 → 登录流程已结束
+	if (isFrameDetached(page, frame)) return false;
+
 	// 表单错误提示（账号密码错误等）
 	const formErr = await readFormError(frame, 500);
 	if (formErr) throw new Error(formErr);
 
-	// 模态框关闭 → 登录成功
-	const modalOpen = await page
-		.locator('.ux-modal.web-login-modal')
-		.first()
-		.evaluate((el) => !!(el as HTMLElement).offsetWidth || !!(el as HTMLElement).offsetHeight)
-		.catch(() => false);
-	if (!modalOpen) return false;
-
-	// 易盾提示文本非默认 → 本次失败，重试
+	// 易盾提示文本非默认 → 本次失败，重试（textContent 默认 30s 等待，快速失败）
 	const tip = await frame
 		.locator('.yidun_tips__text')
 		.first()
-		.textContent()
+		.textContent({ timeout: 500 })
 		.catch(() => '');
 	if (tip && tip.trim() !== CAPTCHA_READY_TEXT) return true;
 
@@ -452,14 +518,11 @@ async function isNotVerified(page: Page, frame: Frame): Promise<boolean> {
  */
 async function waitForLoginResult(page: Page, frame: Frame): Promise<string | null> {
 	for (let i = 0; i < 20; i++) {
+		// 模态框关闭 → 成功（iframe 可能已销毁，优先判断）
+		if (!(await isModalOpen(page))) return null;
+		if (isFrameDetached(page, frame)) return null;
 		const formErr = await readFormError(frame, 300);
 		if (formErr) return formErr;
-		const modalOpen = await page
-			.locator('.ux-modal.web-login-modal')
-			.first()
-			.evaluate((el) => !!(el as HTMLElement).offsetWidth || !!(el as HTMLElement).offsetHeight)
-			.catch(() => false);
-		if (!modalOpen) return null;
 		await page.waitForTimeout(1000);
 	}
 	return '登录超时，请重试。';
