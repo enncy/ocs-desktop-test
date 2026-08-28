@@ -223,12 +223,10 @@ if (typeof _store.render === 'string') {
 
 // 迁移：旧版 theme.dark(boolean) -> theme.mode('light'|'dark'|'auto')
 // defaultsDeep 已补齐 mode:'auto'，此处根据旧 dark 值修正：dark:true -> 'dark'，dark:false -> 'auto'
-{
-	const _theme = _store.render?.setting?.theme as { dark?: boolean; mode?: 'light' | 'dark' | 'auto' } | undefined;
-	if (_theme && _theme.dark !== undefined) {
-		_theme.mode = _theme.dark ? 'dark' : 'auto';
-		delete _theme.dark;
-	}
+const _theme = _store.render?.setting?.theme as { dark?: boolean; mode?: 'light' | 'dark' | 'auto' } | undefined;
+if (_theme && _theme.dark !== undefined) {
+	_theme.mode = _theme.dark ? 'dark' : 'auto';
+	delete _theme.dark;
 }
 
 /** 数据存储对象 */

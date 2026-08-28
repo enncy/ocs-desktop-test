@@ -228,7 +228,7 @@ function exportData() {
 						}
 
 						// 删除多余数据
-						const filter_keys: (keyof typeof _store)[] = ['paths', 'app', 'window', 'server'];
+						const filter_keys: (keyof typeof _store)[] = ['paths', 'window', 'server'];
 						for (const key of filter_keys) {
 							delete _store[key];
 						}

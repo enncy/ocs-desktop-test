@@ -64,13 +64,8 @@ export class Browser extends Entity implements BrowserOptions {
 	 * 适用于模拟更真实的浏览器环境
 	 */
 	async onlyLaunch() {
-		const extensionPaths: string[] = [];
-		// @ts-ignore
-		const paths: string[] = await remote.fs.call('readdirSync', store.paths.extensionsFolder);
-
-		for (const file of paths) {
-			extensionPaths.push(await remote.path.call('join', store.paths.extensionsFolder, file));
-		}
+		// 复用主进程 getExtensionPaths，确保与正常启动一致的过滤逻辑（仅含 manifest.json 的目录）
+		const extensionPaths: string[] = await remote.methods.call('getExtensionPaths', store.paths.extensionsFolder);
 		const cmd = ` "${store.render.setting.launchOptions.executablePath}" ${[
 			'--window-position=0,0',
 			'--no-first-run',
@@ -160,8 +155,9 @@ export class Browser extends Entity implements BrowserOptions {
 
 function formatExtensionArguments(extensionPaths: string[]) {
 	const paths = extensionPaths
-		.filter((f) => f.includes('.DS_Store') === false)
+		.filter((f) => !f.includes('.DS_Store'))
 		.map((p) => p.replace(/\\/g, '/'))
 		.join(',');
-	return [`--load-extension="${paths}"`];
+	// 与主进程保持一致：--disable-extensions-except 防止 Chrome 禁用侧载扩展
+	return paths.length === 0 ? [] : [`--load-extension=${paths}`, `--disable-extensions-except=${paths}`];
 }

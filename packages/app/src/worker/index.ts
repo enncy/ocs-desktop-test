@@ -29,6 +29,7 @@ interface Langs {
 	error_when_browser_launch_failed_too_fast?: string;
 	error_when_extension_version_too_low?: string;
 	error_when_playwright_selector_timeout?: string;
+	error_when_extension_not_found?: string;
 }
 
 /** 脚本工作线程 */
@@ -51,6 +52,14 @@ export class ScriptWorker {
 	screencastPage?: Page;
 	/** Screencast 参数 */
 	screencastParams?: { everyNthFrame: number; maxWidth: number; maxHeight: number; quality: number };
+	/** Screencast 目标页 close 监听（命名以便重选/停止时移除） */
+	private screencastPageCloseListener?: () => void;
+	/** Screencast 新页面监听（browser 'page' 事件） */
+	private screencastNewPageListener?: (page: Page) => void;
+	/** Screencast 各页 load 监听（页面加载完成后自动切换推流目标，便于 off 清理） */
+	private screencastLoadListeners = new Map<Page, () => void>();
+	/** Screencast 启动中标志，防止并发重入导致 session 泄漏 */
+	private screencastStarting = false;
 	static langs?: Langs;
 	static lang: (key: keyof Langs, def?: string, replace?: Record<string, string>) => string = (key, def, replace) => {
 		const result = _get(ScriptWorker.langs, key, def);
@@ -271,8 +280,9 @@ export class ScriptWorker {
 	}
 
 	/**
-	 * 选择当前 screencast 监控目标页面：倒序查找非内部页面（chrome:// / about:），
-	 * 确保监控的是用户当前关注的页面
+	 * 选择当前 screencast 监控目标页面：按创建顺序（倒序）选择最近创建的非内部页面
+	 * （chrome:// / about:）。新页面创建/加载后由事件驱动（page load / browser page）自动重选，
+	 * 无需也不依赖 visibilityState / 页面注入。
 	 */
 	private pickScreencastPage(): Page | undefined {
 		const pages = this.browser?.pages();
@@ -286,50 +296,59 @@ export class ScriptWorker {
 	 * 启动 Page.startScreencast 推流，帧写入磁盘后由本地服务器提供访问。
 	 * 由渲染进程按卡片可见性驱动调用，替代旧的定时截图。
 	 * 帧率自适应：页面活跃时按 everyNthFrame 推流，静止时浏览器不合成、自动停推。
+	 * 推流激活期间按创建顺序跟踪页面：新页面创建/加载完成后自动重选推流目标。
 	 */
 	async startScreencast(opts?: { everyNthFrame?: number; maxWidth?: number; maxHeight?: number; quality?: number }) {
-		if (!this.browser) return;
-
-		// 合并参数：优先用 opts，其次沿用已存参数（用于 page 切换重选），最后默认值
-		const params = {
-			everyNthFrame: opts?.everyNthFrame ?? this.screencastParams?.everyNthFrame ?? 4,
-			maxWidth: opts?.maxWidth ?? this.screencastParams?.maxWidth ?? 640,
-			maxHeight: opts?.maxHeight ?? this.screencastParams?.maxHeight ?? 360,
-			quality: opts?.quality ?? this.screencastParams?.quality ?? 35
-		};
-		this.screencastParams = params;
-
-		// 先清理旧的 session（page 切换重选场景）
-		await this.stopScreencastInternal();
-
-		const page = this.pickScreencastPage();
-		if (!page || page.url().startsWith('chrome')) return;
-
+		if (!this.browser || this.screencastStarting) return;
+		this.screencastStarting = true;
 		try {
-			const session = await page.context().newCDPSession(page);
+			// 合并参数：优先用 opts，其次沿用已存参数（用于 page 切换重选），最后默认值
+			const params = {
+				everyNthFrame: opts?.everyNthFrame ?? this.screencastParams?.everyNthFrame ?? 4,
+				maxWidth: opts?.maxWidth ?? this.screencastParams?.maxWidth ?? 640,
+				maxHeight: opts?.maxHeight ?? this.screencastParams?.maxHeight ?? 360,
+				quality: opts?.quality ?? this.screencastParams?.quality ?? 35
+			};
+			this.screencastParams = params;
 
-			session.on('Page.screencastFrame', ({ data, sessionId }) => {
-				// 先 ack，保证浏览器持续推帧（ack 延迟会导致停推）
-				session.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
-				// 帧直接 IPC 直传渲染进程（base64），不再写盘
-				send('screencast-frame', this.uid, data);
-			});
+			// 先清理旧的 session（page 切换重选场景）
+			await this.stopScreencastInternal();
 
-			await session.send('Page.startScreencast', {
-				format: 'jpeg',
-				quality: params.quality,
-				maxWidth: params.maxWidth,
-				maxHeight: params.maxHeight,
-				everyNthFrame: params.everyNthFrame
-			});
+			// 推流激活期间始终开启目标跟踪（新页面创建 / load 完成后重选）
+			this.setupScreencastTracking();
 
-			this.screencastSession = session;
-			this.screencastPage = page;
+			const page = this.pickScreencastPage();
+			if (!page || page.url().startsWith('chrome')) return;
 
-			// 监控目标页面关闭时自动重选，保证预览连续
-			page.once('close', () => this.handleScreencastPageGone());
-		} catch {
-			// 静默忽略（页面不可截、session 创建失败等）
+			try {
+				const session = await page.context().newCDPSession(page);
+
+				session.on('Page.screencastFrame', ({ data, sessionId }) => {
+					// 先 ack，保证浏览器持续推帧（ack 延迟会导致停推）
+					session.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
+					// 帧直接 IPC 直传渲染进程（base64），不再写盘
+					send('screencast-frame', this.uid, data);
+				});
+
+				await session.send('Page.startScreencast', {
+					format: 'jpeg',
+					quality: params.quality,
+					maxWidth: params.maxWidth,
+					maxHeight: params.maxHeight,
+					everyNthFrame: params.everyNthFrame
+				});
+
+				this.screencastSession = session;
+				this.screencastPage = page;
+
+				// 监控目标页面关闭时自动重选，保证预览连续（命名监听，便于重选/停止时移除）
+				this.screencastPageCloseListener = () => this.handleScreencastPageGone();
+				page.on('close', this.screencastPageCloseListener);
+			} catch {
+				// 静默忽略（页面不可截、session 创建失败等）
+			}
+		} finally {
+			this.screencastStarting = false;
 		}
 	}
 
@@ -343,6 +362,15 @@ export class ScriptWorker {
 	}
 
 	/**
+	 * 暂停 screencast 推流：仅 detach session，不发 screencast-cleared。
+	 * 渲染进程保留最后一帧，切回/滚回视口时立即显示旧帧占位，startScreencast 重建推流后无缝衔接，避免重新等待。
+	 */
+	async pauseScreencast() {
+		await this.stopScreencastInternal();
+		this.screencastParams = undefined; // 标记暂停，避免 handleScreencastPageGone 误重选；恢复时由 opts 重建
+	}
+
+	/**
 	 * 仅停止 screencast session，不清理文件、不发事件（用于内部切换/重选）
 	 */
 	private async stopScreencastInternal() {
@@ -352,7 +380,14 @@ export class ScriptWorker {
 			} catch {}
 			this.screencastSession = undefined;
 		}
+		// 移除目标页 close 监听，防止旧页面重选后重复触发
+		if (this.screencastPage && this.screencastPageCloseListener) {
+			this.screencastPage.off('close', this.screencastPageCloseListener);
+		}
 		this.screencastPage = undefined;
+		this.screencastPageCloseListener = undefined;
+		// 停止目标跟踪（各页 load 监听 / 新页面监听），暂停或停止后不再误重选
+		this.stopScreencastTracking();
 	}
 
 	/**
@@ -369,6 +404,69 @@ export class ScriptWorker {
 				this.startScreencast();
 			}
 		}, 500);
+	}
+
+	/**
+	 * 推流激活期间启动目标跟踪：按创建顺序跟踪页面。
+	 * 每个页面注册 page load 监听，页面加载完成后自动重选推流目标到最近创建的页面；
+	 * 新页面出现（browser 'page'）时同样注册监听并兜底重选，无需页面注入。
+	 */
+	private setupScreencastTracking() {
+		if (!this.browser) return;
+
+		// 对现有页面注册 load 监听（新页面 load 完成后自动切换推流目标）
+		for (const page of this.browser.pages()) {
+			this.attachScreencastLoad(page);
+		}
+
+		// 新页面出现时注册 load 监听并延迟兜底重选（等待页面加载），注册前先 off 防重复
+		if (this.screencastNewPageListener) {
+			this.browser.off('page', this.screencastNewPageListener);
+		}
+		this.screencastNewPageListener = (page) => {
+			this.attachScreencastLoad(page);
+			setTimeout(() => {
+				// 仍在推流激活期间才重选（兜底：页面 load 未触发或加载过慢）
+				if (this.screencastParams && this.browser) {
+					this.startScreencast();
+				}
+			}, 300);
+		};
+		this.browser.on('page', this.screencastNewPageListener);
+	}
+
+	/**
+	 * 为页面注册 load 监听：页面加载完成后自动重选推流目标（按创建顺序跟踪最近页面）。
+	 * 重复注册直接跳过；页面关闭时自动清理监听与记录。
+	 */
+	private attachScreencastLoad(page: Page) {
+		if (this.screencastLoadListeners.has(page)) return;
+		const handler = () => {
+			// 页面加载完成，重选到最近创建的页面
+			if (this.screencastParams && this.browser) {
+				this.startScreencast();
+			}
+		};
+		this.screencastLoadListeners.set(page, handler);
+		page.on('load', handler);
+		page.once('close', () => {
+			this.screencastLoadListeners.delete(page);
+			page.off('load', handler);
+		});
+	}
+
+	/**
+	 * 停止目标跟踪：清理各页 load 监听与新页面监听，暂停/停止后不再泄漏或误重选
+	 */
+	private stopScreencastTracking() {
+		for (const [page, handler] of this.screencastLoadListeners) {
+			page.off('load', handler);
+		}
+		this.screencastLoadListeners.clear();
+		if (this.screencastNewPageListener && this.browser) {
+			this.browser.off('page', this.screencastNewPageListener);
+			this.screencastNewPageListener = undefined;
+		}
 	}
 
 	// TODO
@@ -400,7 +498,8 @@ export class ScriptWorker {
 /** 格式化浏览器拓展启动参数 */
 function formatExtensionArguments(extensionPaths: string[]) {
 	const paths = extensionPaths.map((p) => p.replace(/\\/g, '/')).join(',');
-	return paths.length === 0 ? [] : [`--load-extension=${paths}`];
+	// --disable-extensions-except 防止 Chrome 在某些版本/策略下禁用通过 --load-extension 加载的扩展
+	return paths.length === 0 ? [] : [`--load-extension=${paths}`, `--disable-extensions-except=${paths}`];
 }
 
 function loggerPrefix() {
@@ -495,15 +594,19 @@ export async function launchBrowser({
 					// 加载本地导航页
 					await blankPage.goto(bookmarksPageUrl || 'about:blank');
 
-					// 打开开发者模式
+					// 打开开发者模式（MV3 运行脚本必需）
 					await openExtensionDeveloperMode(browser, executablePath.includes('edge'));
+					// 通过 service worker 验证脚本管理器拓展已加载（间接确认开发者模式开启）
+					await verifyExtensionsLoaded(browser);
 
 					// 必须先打开开发者模式，才能关闭额外拓展页，否则打开开发者模式可能会重启插件，导致出现新的额外页面
-					// 关闭拓展加载时弹出的首页
+					// 关闭拓展加载时弹出的首页（并行清理，不阻塞；未出现欢迎页属正常情况）
 					waitAndCloseExtensionHomepage({ browser, closeableExtensionHomepages });
 
 					// 安装用户脚本
-					const warn = await setupUserScripts({ browser, userscripts, step, enabledScriptCount });
+					const { warn, results } = await setupUserScripts({ browser, userscripts, step, enabledScriptCount });
+					// 回传安装结果（供渲染进程按成功情况更新 lastInstalledVersion）
+					send('userscript-install-result', results);
 
 					// 监听网络请求
 					browserNetworkRoute(authToken, browser);
@@ -528,69 +631,123 @@ export async function launchBrowser({
 }
 
 /**
- * 安装/更新脚本
- *
+ * 安装结果
  */
-async function initScripts(urls: string[], browser: BrowserContext) {
+interface InstallResult {
+	url: string;
+	success: boolean;
+	reason?: string;
+}
+
+/**
+ * 安装/更新脚本（逐个安装，精确判定每个脚本的成功/失败）
+ */
+async function initScripts(urls: string[], browser: BrowserContext): Promise<InstallResult[]> {
 	console.log('install ', urls);
-	let installCont = 0;
-	let retryCount = 0;
-	const maxRetries = 120;
+	const results: InstallResult[] = [];
+	for (const url of urls) {
+		results.push(await installOneScript(url, browser));
+	}
+	return results;
+}
 
-	// 触发下载
-	await (async () => {
-		for (const url of urls) {
-			const page = await browser.newPage();
-			try {
-				await Promise.race([page.goto(url).catch(() => {}), sleep(3 * 1000).then(() => page.close())]);
-			} catch {}
+/**
+ * 安装单个脚本：触发安装页 -> 点击安装 -> 等待成功信号
+ */
+async function installOneScript(url: string, browser: BrowserContext): Promise<InstallResult> {
+	const trigger = await browser.newPage();
+	try {
+		// 触发拓展拦截 .user.js 并弹出安装页（3s 内未完成则关闭触发页）
+		await Promise.race([
+			trigger.goto(url).catch(() => {}),
+			sleep(3 * 1000).then(() => trigger.close().catch(() => {}))
+		]);
+	} catch {}
+
+	// 等待 extension:// 安装页出现
+	const installPage = await waitForInstallPage(browser, 10 * 1000);
+	if (!installPage) {
+		await trigger.close().catch(() => {});
+		return { url, success: false, reason: '安装页未出现' };
+	}
+
+	try {
+		await installPage.bringToFront();
+		await sleep(1000);
+		const clicked = await clickInstallButton(installPage);
+		const success = await waitForInstallSuccess(installPage, 15 * 1000);
+		return {
+			url,
+			success,
+			reason: success ? undefined : clicked ? '安装未确认' : '未找到安装按钮'
+		};
+	} finally {
+		if (!installPage.isClosed()) {
+			await installPage.close().catch(() => {});
 		}
-	})();
+		await trigger.close().catch(() => {});
+	}
+}
 
-	// 检测脚本是否安装/更新完毕
-	const tryInstall = async () => {
-		if (browser.pages().length !== 0) {
-			const installPage = browser.pages().find((p) => /extension:\/\//.test(p.url()));
-			if (installPage) {
-				// 置顶页面，防止点击安装失败
-				await installPage.bringToFront();
-				await sleep(1000);
-				const closed = await installPage.evaluate(() => {
-					const btn = (document.querySelector('[class*="primary"]') ||
-						document.querySelector('[type*="button"]')) as HTMLElement;
-					// （由渲染进程版本检查过滤），直接点击按钮安装/更新
-					btn?.click();
-					if (!btn) {
-						return false;
-					}
-				});
+/**
+ * 轮询等待 extension:// 安装页出现
+ */
+async function waitForInstallPage(browser: BrowserContext, timeout: number): Promise<Page | undefined> {
+	const end = Date.now() + timeout;
+	while (Date.now() < end) {
+		const page = browser.pages().find((p) => /extension:\/\//.test(p.url()));
+		if (page) return page;
+		await sleep(500);
+	}
+	return undefined;
+}
 
-				if (!closed) {
-					await sleep(1000).then(() => installPage.close());
-				}
-
-				if (installPage.isClosed()) {
-					installCont++;
-				}
-				if (installCont < urls.length) {
-					retryCount = 0;
-					await tryInstall();
-				}
-			} else if (installCont === urls.length) {
-				//
-			} else {
-				retryCount++;
-				if (retryCount > maxRetries) {
-					console.error('脚本安装超时，跳过未安装的脚本');
-					return;
-				}
-				await sleep(1000);
-				await tryInstall();
-			}
+/**
+ * 点击安装按钮，返回是否点到按钮
+ * 优先按按钮文本精确匹配（安装/Install 等），兜底 class 含 primary
+ */
+async function clickInstallButton(installPage: Page): Promise<boolean> {
+	return await installPage.evaluate(() => {
+		const candidates = [
+			...Array.from(document.querySelectorAll<HTMLElement>('button')),
+			...Array.from(document.querySelectorAll<HTMLElement>('[type="button"]')),
+			...Array.from(document.querySelectorAll<HTMLElement>('[class*="primary"]'))
+		];
+		const btn =
+			candidates.find((el) => /安装|Install|确定|Confirm|OK/i.test((el.textContent || '').trim())) ||
+			candidates.find((el) => !!el.className && /primary/i.test(el.className));
+		if (btn) {
+			btn.click();
+			return true;
 		}
-	};
+		return false;
+	});
+}
 
-	await tryInstall();
+/**
+ * 等待安装成功信号（页面关闭 / 跳转离开安装页 / 成功文本 / 按钮禁用）
+ */
+async function waitForInstallSuccess(installPage: Page, timeout: number): Promise<boolean> {
+	const end = Date.now() + timeout;
+	while (Date.now() < end) {
+		// 页面已关闭
+		if (installPage.isClosed()) return true;
+		// 页面已跳转离开安装页
+		if (!/extension:\/\//.test(installPage.url())) return true;
+		// 文本/按钮状态
+		const matched = await installPage
+			.evaluate(() => {
+				const text = document.body?.innerText || '';
+				if (/已安装|已存在|安装成功|重新安装|Installed|Reinstall/i.test(text)) return true;
+				const btn = document.querySelector<HTMLButtonElement>('[class*="primary"]');
+				if (btn && (btn.disabled || btn.getAttribute('disabled') !== null)) return true;
+				return false;
+			})
+			.catch(() => false);
+		if (matched) return true;
+		await sleep(500);
+	}
+	return false;
 }
 
 function send(event: string, ...args: any[]) {
@@ -623,16 +780,22 @@ async function setupUserScripts(opts: {
 	userscripts: string[];
 	step: (tips: string | string[], opts?: { loading?: boolean; warn?: boolean }) => Promise<void>;
 	enabledScriptCount: number;
-}) {
+}): Promise<{ warn: string[]; results: InstallResult[] }> {
 	const { userscripts, browser, step, enabledScriptCount } = opts;
 
 	const warn: string[] = [];
+	const results: InstallResult[] = [];
 	// 安装用户脚本
 	if (userscripts.length) {
 		await step('正在安装用户脚本...（如长时间未完成请尝试重启浏览器 ）');
 		// 载入本地脚本
 		try {
-			await initScripts(userscripts, browser);
+			const res = await initScripts(userscripts, browser);
+			results.push(...res);
+			const failed = res.filter((r) => !r.success);
+			if (failed.length) {
+				warn.push(`以下用户脚本安装失败，下次启动将重试：${failed.map((f) => f.url).join('、')}`);
+			}
 		} catch (e) {
 			// @ts-ignore
 			console.error('脚本安装失败：', e.message);
@@ -645,7 +808,7 @@ async function setupUserScripts(opts: {
 		// enabledScriptCount > 0 且 userscripts 为空 → 所有脚本均为最新，无需更新，无需提示
 	}
 
-	return warn;
+	return { warn, results };
 }
 
 /**
@@ -695,10 +858,11 @@ async function runAutomationScripts(opts: {
  * 关闭浏览器拓展主页
  */
 async function waitAndCloseExtensionHomepage(opts: { browser: BrowserContext; closeableExtensionHomepages: string[] }) {
-	return new Promise<any>((resolve, reject) => {
+	return new Promise<void>((resolve) => {
 		const timeout = setTimeout(() => {
 			clearInterval(interval);
-			reject(new Error('浏览器拓展加载超时，请尝试重启浏览器，或者查看网络情况。'));
+			// 欢迎页未出现属正常情况（拓展已加载过），拓展加载是否成功已由 verifyExtensionsLoaded 检测
+			resolve();
 		}, 60 * 1000);
 		const interval = setInterval(async () => {
 			const includes: Page[] = [];
@@ -717,8 +881,8 @@ async function waitAndCloseExtensionHomepage(opts: { browser: BrowserContext; cl
 				clearInterval(interval);
 				clearTimeout(timeout);
 				Promise.all(includes.map(async (page) => page.close()))
-					.then(resolve)
-					.catch(reject);
+					.then(() => resolve())
+					.catch(() => resolve());
 			}
 		}, 1000);
 	});
@@ -878,7 +1042,10 @@ function openUrl(url: string) {
 }
 
 /**
- * 打开浏览器拓展开发者模式（由于 MV3 的限制，运行脚本需要打开开发者模式）
+ * 打开浏览器拓展开发者模式（由于 MV3 的限制，运行脚本需要打开开发者模式）。
+ * 仅执行开启动作；是否真正开启由后续 verifyExtensionsLoaded 的 service worker 检测间接确认
+ * （开发者模式关闭时侧载拓展会被禁用，service worker 不会运行），
+ * 不依赖 chrome://extensions/ 的 DOM 回读，避免页面结构变化导致的不稳定。
  */
 async function openExtensionDeveloperMode(browser: BrowserContext, edge: boolean = false) {
 	const page = await browser.newPage();
@@ -891,14 +1058,14 @@ async function openExtensionDeveloperMode(browser: BrowserContext, edge: boolean
 			const els = await page.$$('[aria-label="扩展 菜单"]');
 			await els[1]?.click();
 			const element = await page.waitForSelector('#developer-mode', {
-				timeout: 1000
+				timeout: 5000
 			});
 			if (await element.evaluate<boolean, HTMLInputElement>((el) => el.checked === false)) {
 				await element.click();
 			}
 		} else {
 			const element = await page.waitForSelector('#devMode', {
-				timeout: 1000
+				timeout: 5000
 			});
 			// 如果没有开启开发者模式
 			if (
@@ -913,10 +1080,41 @@ async function openExtensionDeveloperMode(browser: BrowserContext, edge: boolean
 				}
 			}
 		}
-	} catch {}
+		console.log('开发者模式已打开');
+	} catch (err) {
+		await page.close().catch(() => {});
+		throw err;
+	}
 	await page.waitForTimeout(500);
-	console.log('开发者模式已打开');
 	await page.close();
+}
+
+/**
+ * 验证脚本管理器拓展已加载。
+ * 通过检测拓展的 service worker 是否运行来判断（MV3 拓展必有 service worker）。
+ * 不读取 chrome://extensions/ 的 DOM--其页面结构随 Chrome 版本频繁变化，不稳定；
+ * service worker 检测不依赖页面结构，更长久可靠。
+ * 注意：开发者模式关闭时，通过 --load-extension 侧载的拓展会被 Chrome 禁用，
+ * 其 service worker 不会运行，因此 service worker 存在也间接确认了开发者模式已开启。
+ */
+async function verifyExtensionsLoaded(browser: BrowserContext) {
+	// 拓展 service worker 可能在启动后短暂延迟才注册，轮询等待
+	const timeout = 15 * 1000;
+	const end = Date.now() + timeout;
+	let sw = browser.serviceWorkers().find((s) => /chrome-extension:\/\//.test(s.url()));
+	while (!sw && Date.now() < end) {
+		await sleep(500);
+		sw = browser.serviceWorkers().find((s) => /chrome-extension:\/\//.test(s.url()));
+	}
+	if (!sw) {
+		throw new Error(
+			ScriptWorker.lang(
+				'error_when_extension_not_found',
+				'未检测到脚本管理器拓展（油猴/脚本猫）的 service worker，请前往应用中心安装或检查开发者模式是否开启。'
+			)
+		);
+	}
+	console.log('拓展加载检测通过（service worker）：', sw.url());
 }
 function getExtensionName(filepath: string) {
 	return filepath.toLocaleLowerCase().includes('tampermonkey')

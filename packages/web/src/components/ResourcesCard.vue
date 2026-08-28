@@ -58,9 +58,7 @@
 				class="mb-2"
 				banner
 				title="使用提示"
-				:html="
-					t('notice_resources_page_usage', '在此安装与管理脚本管理器及各类拓展资源，安装后将自动加载到浏览器中。')
-				"
+				:html="t('notice_resources_page_usage', '在此安装与管理脚本管理器及各类拓展资源，安装后将自动加载到浏览器中。')"
 			/>
 
 			<template v-if="resState.loading && !resState.initialized">

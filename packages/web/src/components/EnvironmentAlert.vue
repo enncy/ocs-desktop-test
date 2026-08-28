@@ -20,9 +20,7 @@
 					<div class="text-black fw-bold">
 						<template v-if="!envState.isCurrentBrowserSupported">
 							<div>
-								原因：{{
-									t('browser_page_environment_error_current_browser_not_supported', '当前浏览器版本不受支持')
-								}}
+								原因：{{ t('browser_page_environment_error_current_browser_not_supported', '当前浏览器版本不受支持') }}
 							</div>
 						</template>
 						<template v-else-if="!envState.supportedBrowser">

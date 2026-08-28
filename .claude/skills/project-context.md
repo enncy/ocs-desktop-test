@@ -12,7 +12,7 @@
 - **用户脚本自动安装与更新**：通过 Playwright 控制浏览器，自动导航至 `.user.js` 脚本 URL，模拟点击安装按钮，支持油猴（Tampermonkey）和脚本猫（ScriptCat）两种脚本管理器。
 - **自动化脚本执行**：支持官方内置脚本和第三方远程/本地脚本的安装、权限验证、沙盒化执行。
 - **验证码识别**：集成 ddddocr 进行图片验证码识别和滑块验证码破解。
-- **浏览器监控**：通过 WebRTC 屏幕共享实现浏览器画面实时监控。
+- **浏览器监控**：通过 Playwright 定时截图（写入磁盘后由本地服务器提供）实现浏览器画面监控，简洁模式卡片与专业模式监控页面共用同一截图管线。
 - **双模式界面**：简洁模式（Simple）和专业模式（Professional），支持响应式自适应切换。
 
 ### 技术栈
@@ -208,7 +208,6 @@ remote['electron-store'].get('store'); // 获取属性
 - `dialog` — Electron dialog 模块
 - `methods` — 自定义方法集合（见下）
 - `logger` — 日志实例
-- `desktopCapturer` — 桌面截图源
 
 **methods 远程方法集**（最常用）：
 
@@ -222,7 +221,6 @@ remote['electron-store'].get('store'); // 获取属性
 - `exportExcel()` — 导出 Excel
 - `statisticFolderSize()` — 统计文件夹大小
 - `updateApp()` — 应用更新
-- `captureDesktopScreen()` — 桌面截图
 - `encryptRenderString/decryptRenderString` — 加解密渲染进程数据
 - `saveStore(plainStoreJson, shouldEncrypt)` — 保存 store（一次 IPC 完成加密+持久化）
 - `getRawScripts()` — 获取所有自动化脚本
@@ -322,7 +320,7 @@ Browser.launch() → Process.init() → fork(script.js) → RemoteScriptWorker
 - `init` — 进程初始化完成
 - `launched` — 浏览器启动完成
 - `browser-closed` — 浏览器关闭
-- `webrtc-page-loaded` / `webrtc-page-closed` — WebRTC 页面事件
+- `screenshot-updated` / `screenshot-cleared` — 截图更新 / 清理事件
 
 **浏览器启动参数**：
 
@@ -379,6 +377,7 @@ Browser.launch() → Process.init() → fork(script.js) → RemoteScriptWorker
 | `POST /proxy`                                | HTTP 请求代理                                                  |
 | `POST /ocr`                                  | 验证码识别（ddddocr）                                          |
 | `GET /api/local-userscript?path=`            | 提供本地用户脚本                                               |
+| `GET /api/screenshot/:uid`                   | 提供浏览器运行时截图预览（监控/简洁模式共用）                 |
 | `GET /api/bookmark/show-browser-in-app?uid=` | 在应用中定位浏览器                                             |
 | `GET /ocs-action_*`                          | 脚本执行提示页                                                 |
 | 静态资源                                     | `public/` 目录                                                 |
