@@ -130,7 +130,7 @@ export const ICourseLoginScript = new AutomationScript(
 async function isNotLogin(page: Page): Promise<boolean> {
 	await page.goto(HOME_URL, { waitUntil: 'domcontentloaded' });
 	try {
-		await page.waitForSelector(SEL.loginBtn, { timeout: 3000 });
+		await page.waitForSelector(SEL.loginBtn, { timeout: 20000 });
 		return true;
 	} catch {
 		return false;

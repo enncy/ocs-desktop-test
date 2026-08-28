@@ -158,6 +158,41 @@ const methods = {
 			storeData.render = encryptRenderString(JSON.stringify(storeData.render));
 		}
 		store.store = storeData;
+	},
+	/**
+	 * 批量预下载远程用户脚本到临时目录，供本地服务器代理给拓展拦截安装。
+	 * 规避远程 .user.js 网络波动导致拓展拦截失败。失败项返回 success:false，调用方据此剔除并通知用户。
+	 */
+	downloadUserscripts: async (urls: string[]) => {
+		const tmpDir = path.resolve(app.getPath('temp'), './ocs-userscripts');
+		// 确保临时目录存在。不清空：避免多浏览器并行启动时互相删除对方正在使用的临时文件；
+		// 文件名按 url hash 命名，同脚本覆盖写，不同脚本不冲突。
+		await fs.promises.mkdir(tmpDir, { recursive: true });
+
+		const fetchOnce = (u: string) =>
+			axios.get(u, { timeout: 30 * 1000, responseType: 'text', validateStatus: () => true }).catch(() => null);
+
+		return Promise.all(
+			urls.map(async (url) => {
+				try {
+					let res = await fetchOnce(url);
+					if (!res || !res.status || res.status < 200 || res.status >= 300) {
+						// 网络波动，重试一次
+						res = await fetchOnce(url);
+					}
+					if (!res || !res.status || res.status < 200 || res.status >= 300) {
+						return { url, path: '', success: false, error: `HTTP ${res?.status || 'unknown'}` };
+					}
+					const data = typeof res.data === 'string' ? res.data : String(res.data);
+					const hash = crypto.createHash('md5').update(url).digest('hex').slice(0, 12);
+					const filePath = path.join(tmpDir, `${hash}.user.js`);
+					await fs.promises.writeFile(filePath, data, 'utf-8');
+					return { url, path: filePath, success: true };
+				} catch (e: any) {
+					return { url, path: '', success: false, error: e?.message || String(e) };
+				}
+			})
+		);
 	}
 };
 

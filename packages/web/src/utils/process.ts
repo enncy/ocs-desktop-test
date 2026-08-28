@@ -10,7 +10,14 @@ import EventEmitter from 'events';
 import { child_process } from './node';
 import { notify } from './notify';
 import { Status } from './statusBar';
-import { filterScriptsNeedingInstall } from './script-version';
+import { filterScriptsNeedingInstall, ScriptToInstall } from './script-version';
+
+/** 用户脚本安装结果（由 worker 回传） */
+interface InstallResult {
+	url: string;
+	success: boolean;
+	reason?: string;
+}
 
 export type RemoteScriptWorker = <W extends keyof ScriptWorker = keyof ScriptWorker>(
 	event: W,
@@ -189,17 +196,62 @@ export class Process extends EventEmitter {
 			} else {
 				Status.loading(`正在启动 ${this.browser.name}（脚本均为最新，无需更新）...`);
 			}
-			this.once('launched', () => {
-				// 安装成功后更新 lastInstalledVersion
-				for (const item of scriptsToInstall) {
-					item.script.lastInstalledVersion = item.latestVersion;
+			// 预下载远程脚本 + 构造安装 URL（远程脚本经本地服务器代理，规避网络波动）
+			const port = store.server.port || 15319;
+			const userscripts: string[] = [];
+			const urlToItem = new Map<string, ScriptToInstall>();
+			for (const item of scriptsToInstall) {
+				const script = item.script;
+				if (script.isLocalScript) {
+					// 本地脚本：直接通过本地服务器代理（拓展只能拦截 http/https）
+					const localPath = script.info?.code_url || script.url;
+					const installUrl = `http://localhost:${port}/api/local-userscript?path=${encodeURIComponent(localPath)}`;
+					userscripts.push(installUrl);
+					urlToItem.set(installUrl, item);
+				} else {
+					// 远程脚本：主进程预下载到临时文件，再经本地服务器代理给拓展拦截
+					const remoteUrl = script.info?.code_url || script.url;
+					Status.loading(`正在下载脚本 ${script.info?.name || remoteUrl} ...`);
+					const results = await remote.methods.call('downloadUserscripts', [remoteUrl]);
+					const r = results?.[0];
+					if (r && r.success && r.path) {
+						const installUrl = `http://localhost:${port}/api/local-userscript?path=${encodeURIComponent(r.path)}`;
+						userscripts.push(installUrl);
+						urlToItem.set(installUrl, item);
+					} else {
+						// 预下载失败：剔除并通知，不更新 lastInstalledVersion（下次重试）
+						notify(
+							'脚本下载失败',
+							`${script.info?.name || remoteUrl} 下载失败：${r?.error || '未知原因'}，本次跳过，下次启动将重试`,
+							'download-fail-' + remoteUrl,
+							{ duration: 60 * 1000, type: 'warning', copy: true }
+						);
+					}
+				}
+			}
+
+			// 接收 worker 回传的安装结果，按成功情况更新 lastInstalledVersion
+			this.once('userscript-install-result', (results: InstallResult[]) => {
+				for (const r of results || []) {
+					const item = urlToItem.get(r.url);
+					if (!item) continue;
+					if (r.success) {
+						item.script.lastInstalledVersion = item.latestVersion;
+					} else {
+						notify(
+							'脚本安装失败',
+							`${item.script.info?.name || r.url} 安装失败：${r.reason || ''}，下次启动将重试`,
+							'install-fail-' + r.url,
+							{ duration: 60 * 1000, type: 'warning', copy: true }
+						);
+					}
 				}
 				Status.clear();
 			});
-			this.shell?.once('exit', (code) => {
+			this.shell?.once('exit', () => {
 				Status.clear();
 			});
-			return { scriptsToInstall, enabledScriptCount: enabledUserScripts.length };
+			return { userscripts, enabledScriptCount: enabledUserScripts.length };
 		} catch (err) {
 			Message.error('浏览器路径读取错误 : ' + String(err));
 		}
@@ -220,15 +272,8 @@ export class Process extends EventEmitter {
 						});
 						this.worker?.('launch', {
 							userDataDir: this.browser.cachePath,
-							// 这里要加密编码，防止路径中有中文等特殊字符，会无法安装脚本
 							enabledScriptCount: result.enabledScriptCount,
-							userscripts: result.scriptsToInstall.map((item) =>
-								item.script.isLocalScript
-									? `http://localhost:${store.server.port}/api/local-userscript?path=${encodeURIComponent(
-											item.script.info?.code_url || item.script.url
-									  )}`
-									: item.script.info?.code_url || item.script.url
-							),
+							userscripts: result.userscripts,
 							...this.launchOptions
 						});
 					}
@@ -264,7 +309,8 @@ export class Process extends EventEmitter {
 
 	/**
 	 * 设置截图预览（Page.startScreencast）启停，由卡片可见性驱动调用。
-	 * 仅在已启动时生效；不可见时停止推流以释放资源。
+	 * 仅在已启动时生效；不可见时暂停推流释放资源，但保留最后一帧，
+	 * 重新可见时立即显示旧帧占位，新帧到达后无缝衔接，避免重新等待。
 	 */
 	setScreencastActive(
 		active: boolean,
@@ -274,7 +320,7 @@ export class Process extends EventEmitter {
 		if (active) {
 			this.worker?.('startScreencast', opts);
 		} else {
-			this.worker?.('stopScreencast');
+			this.worker?.('pauseScreencast');
 		}
 	}
 
