@@ -72,14 +72,14 @@
 										:class="cardClass(browser)"
 										@click="selectBrowser(browser)"
 									>
-										<!-- 截图封面区域（运行中时独占整个卡片） -->
+										<!-- 截图封面区域（运行中推流 或 浏览器关闭后保留预览图时独占整个卡片） -->
 										<div
-											v-if="showScreenshot(browser.uid)"
+											v-if="showCover(browser.uid)"
 											class="card-screenshot"
 										>
 											<img
-												v-if="getProcess(browser.uid)?.frameUrl"
-												:src="getProcess(browser.uid)?.frameUrl"
+												v-if="getCoverUrl(browser.uid)"
+												:src="getCoverUrl(browser.uid)"
 												alt="浏览器预览"
 												class="screenshot-img"
 											/>
@@ -91,7 +91,7 @@
 											</div>
 											<!-- 中心查看大图按钮 -->
 											<div
-												v-if="getProcess(browser.uid)?.frameUrl"
+												v-if="getCoverUrl(browser.uid)"
 												class="card-screenshot-view"
 												@click.stop="openPreview(browser)"
 											>
@@ -108,16 +108,33 @@
 														{{ browser.name }}
 													</Icon>
 												</div>
-												<BrowserOperators
-													:browser="browser"
-													icon-class="fs-5"
-												/>
+												<div class="overlay-actions">
+													<BrowserOperators
+														:browser="browser"
+														icon-class="fs-5"
+													/>
+													<!-- 关闭"关闭后的预览图"：恢复正常显示（提示或者备注和标签） -->
+													<a-tooltip
+														v-if="showClosedPreview(browser.uid)"
+														content="关闭预览图"
+													>
+														<a-button
+															type="text"
+															size="mini"
+															@click.stop="dismissClosedPreview(browser.uid)"
+														>
+															<template #icon>
+																<Icon type="close" />
+															</template>
+														</a-button>
+													</a-tooltip>
+												</div>
 											</div>
 										</div>
 
 										<template #extra>
 											<div
-												v-if="!showScreenshot(browser.uid)"
+												v-if="!showCover(browser.uid)"
 												class="d-flex align-items-end"
 											>
 												<BrowserOperators
@@ -129,7 +146,7 @@
 
 										<template #title>
 											<div
-												v-if="!showScreenshot(browser.uid)"
+												v-if="!showCover(browser.uid)"
 												class="card-name-text"
 											>
 												<Icon type="web">
@@ -150,7 +167,7 @@
 											</div>
 										</template>
 
-										<a-card-meta v-if="!showScreenshot(browser.uid)">
+										<a-card-meta v-if="!showCover(browser.uid)">
 											<template #description>
 												<!-- 备注/描述 -->
 												<div
@@ -237,7 +254,9 @@
 		>
 			<template #title>
 				<div class="preview-title">
-					<span class="d-flex align-items-center gap-2"> <Icon type="web" /> {{ previewBrowserName }} - 预览中 </span>
+					<span class="d-flex align-items-center gap-2">
+						<Icon type="web" /> {{ previewBrowserName }} - {{ previewIsLive ? '预览中' : '上一次关闭前截图' }}
+					</span>
 					<BrowserOperators
 						v-if="previewBrowser"
 						:browser="previewBrowser"
@@ -249,8 +268,8 @@
 				</div>
 			</template>
 			<img
-				v-if="getProcess(previewUid)?.frameUrl"
-				:src="getProcess(previewUid)?.frameUrl"
+				v-if="getCoverUrl(previewUid)"
+				:src="getCoverUrl(previewUid)"
 				alt="浏览器预览"
 				class="screenshot-preview-img"
 			/>
@@ -267,7 +286,7 @@ import CommonEditActionDropdown from '../../components/CommonEditActionDropdown.
 import { store } from '../../store';
 import { root } from '../../fs/folder';
 import { Browser } from '../../fs/browser';
-import { Process, processes } from '../../utils/process';
+import { Process, processes, closedPreviews, restoreClosedPreviews } from '../../utils/process';
 import { useScreencastVisibility } from '../../composables/useScreencastVisibility';
 import { BrowserOptions } from '../../fs/interface';
 import { newBrowserOrInit } from '../../utils/browser';
@@ -307,10 +326,49 @@ function showScreenshot(uid: string): boolean {
 	return isLaunched(uid) && store.render.setting.browser.screenshotPreview;
 }
 
+/** 用户手动关闭"关闭后预览图"的记录（uid -> 被关闭时的预览图 URL，新一轮启动+关闭产生新帧后重新展示） */
+const dismissedClosedPreviews = reactive(new Map<string, string>());
+
+/** 浏览器关闭后保留的预览图 URL */
+function getClosedPreviewUrl(uid: string): string | undefined {
+	return closedPreviews.get(uid);
+}
+
+/**
+ * 是否显示"浏览器关闭后的预览图"：
+ * 开启预览图显示、浏览器未在运行、存在保留帧且未被用户手动关闭。
+ * 覆盖卡片上的提示信息以及备注和标签。
+ */
+function showClosedPreview(uid: string): boolean {
+	if (!store.render.setting.browser.screenshotPreview) return false;
+	if (getProcess(uid)) return false;
+	const url = closedPreviews.get(uid);
+	if (!url) return false;
+	return dismissedClosedPreviews.get(uid) !== url;
+}
+
+/** 关闭"关闭后的预览图"，恢复正常的显示（提示或者备注和标签） */
+function dismissClosedPreview(uid: string) {
+	const url = closedPreviews.get(uid);
+	if (url) {
+		dismissedClosedPreviews.set(uid, url);
+	}
+}
+
+/** 是否显示截图封面（运行中推流 或 浏览器关闭后保留的预览图） */
+function showCover(uid: string): boolean {
+	return showScreenshot(uid) || showClosedPreview(uid);
+}
+
+/** 封面图 URL：运行中取实时帧，关闭后取保留的最后一帧 */
+function getCoverUrl(uid: string): string | undefined {
+	return getProcess(uid)?.frameUrl || getClosedPreviewUrl(uid);
+}
+
 /** 计算浏览器卡片的 class */
 function cardClass(browser: BrowserOptions) {
 	return {
-		'has-screenshot': showScreenshot(browser.uid)
+		'has-screenshot': showCover(browser.uid)
 	};
 }
 
@@ -332,6 +390,9 @@ const previewBrowserName = ref('');
 /** 当前预览的浏览器对象（用于弹窗内操作按钮） */
 const previewBrowser = computed(() => allBrowsers.value.find((b) => b.uid === previewUid.value));
 
+/** 预览弹窗展示的帧是否为实时推流（浏览器运行中），否则为关闭前保留的截图 */
+const previewIsLive = computed(() => !!getProcess(previewUid.value));
+
 /** 卡片网格最大宽度：3/4 列时加宽，避免卡片被挤得太小 */
 const cardGridMaxWidth = computed(() => {
 	const cols = store.render.setting.simpleCardColumns;
@@ -340,9 +401,9 @@ const cardGridMaxWidth = computed(() => {
 	return '800px';
 });
 
-/** 打开截图大图预览 */
+/** 打开截图大图预览（运行中实时帧 或 关闭后保留的预览图） */
 function openPreview(browser: BrowserOptions) {
-	if (getProcess(browser.uid)?.frameUrl) {
+	if (getCoverUrl(browser.uid)) {
 		previewUid.value = browser.uid;
 		previewBrowserName.value = browser.name;
 		previewVisible.value = true;
@@ -393,6 +454,8 @@ watch([() => state.activeTab, () => allBrowsers.value.length, processesSnapshot]
 onMounted(() => {
 	// 确保专业模式的面板已关闭
 	store.render.browser.currentBrowserUid = '';
+	// 从磁盘恢复上次软件退出前保留的"浏览器关闭后预览图"
+	restoreClosedPreviews(allBrowsers.value);
 	nextTick(refreshScreencast);
 });
 </script>
@@ -520,6 +583,13 @@ onMounted(() => {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+
+	.overlay-actions {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		flex-shrink: 0;
+	}
 
 	:deep(.arco-btn-text) {
 		color: rgba(29, 33, 41, 0.75);

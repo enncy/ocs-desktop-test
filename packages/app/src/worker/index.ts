@@ -272,7 +272,9 @@ export class ScriptWorker {
 	}
 
 	async close() {
-		await this.stopScreencast();
+		// 仅内部停止推流（detach session），不发 screencast-cleared：
+		// 渲染进程在 browser-closed 时保留最后一帧，用于"浏览器关闭后的预览图"展示
+		await this.stopScreencastInternal();
 		await this.browser?.close();
 		this.browser = undefined;
 		send('browser-closed');

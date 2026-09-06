@@ -24,6 +24,88 @@ export type RemoteScriptWorker = <W extends keyof ScriptWorker = keyof ScriptWor
 	...args: ScriptWorker[W] extends { (...args: any[]): any } ? Parameters<ScriptWorker[W]> : any[]
 ) => void;
 
+/** 浏览器关闭后保留的最后一帧预览图（uid -> Blob URL），由界面层决定是否展示 */
+export const closedPreviews: Map<string, string> = reactive(new Map());
+
+/** base64 -> Blob URL */
+function base64ToBlobUrl(base64: string): string {
+	const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+	return URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+}
+
+/** 预览帧持久化目录（userData/previews），首次访问时创建 */
+let _previewFolderPromise: Promise<string> | undefined;
+function previewFolder(): Promise<string> {
+	_previewFolderPromise ??= (async () => {
+		const dir = await remote.path.call('join', store.paths['user-data-path'], 'previews');
+		if (!(await remote.fs.call('existsSync', dir))) {
+			await remote.fs.call('mkdirSync', dir, { recursive: true });
+		}
+		return dir;
+	})();
+	return _previewFolderPromise;
+}
+
+/** 将预览帧持久化到磁盘（uid.jpg），静默容错 */
+export async function persistPreviewFrame(uid: string, base64: string) {
+	try {
+		const file = await remote.path.call('join', await previewFolder(), `${uid}.jpg`);
+		await remote.fs.call('writeFileSync', file, base64, 'base64');
+	} catch (err) {
+		console.warn('[preview] 预览帧持久化失败：', err);
+	}
+}
+
+/** 删除磁盘上持久化的预览帧，静默容错 */
+export async function deletePersistedPreviewFrame(uid: string) {
+	try {
+		const file = await remote.path.call('join', await previewFolder(), `${uid}.jpg`);
+		if (await remote.fs.call('existsSync', file)) {
+			await remote.fs.call('rmSync', file, { force: true });
+		}
+	} catch (err) {
+		console.warn('[preview] 删除持久化预览帧失败：', err);
+	}
+}
+
+/**
+ * 从磁盘恢复"浏览器关闭后的预览图"（应用重启后由界面层调用一次）。
+ * 跳过正在运行或已有内存帧的浏览器。
+ */
+let _closedPreviewsRestored = false;
+export async function restoreClosedPreviews(browsers: { uid: string }[]) {
+	if (_closedPreviewsRestored) return;
+	_closedPreviewsRestored = true;
+	try {
+		const dir = await previewFolder();
+		for (const b of browsers) {
+			if (Process.from(b.uid) || closedPreviews.has(b.uid)) continue;
+			try {
+				const file = await remote.path.call('join', dir, `${b.uid}.jpg`);
+				if (!(await remote.fs.call('existsSync', file))) continue;
+				const base64 = (await remote.fs.call('readFileSync', file, 'base64')) as string;
+				if (base64) {
+					closedPreviews.set(b.uid, base64ToBlobUrl(base64));
+				}
+			} catch {
+				// 单个文件损坏不影响其他浏览器恢复
+			}
+		}
+	} catch (err) {
+		console.warn('[preview] 恢复关闭预览图失败：', err);
+	}
+}
+
+/** 清理浏览器关闭后保留的预览图（重新启动/删除浏览器时调用），同步删除磁盘帧 */
+export function clearClosedPreview(uid: string) {
+	const url = closedPreviews.get(uid);
+	if (url) {
+		URL.revokeObjectURL(url);
+		closedPreviews.delete(uid);
+	}
+	deletePersistedPreviewFrame(uid);
+}
+
 /**
  * 运行进程
  */
@@ -44,6 +126,11 @@ export class Process extends EventEmitter {
 	frameUrl: string = '';
 	/** 上一帧 Blob URL，用于更新前 revoke 避免内存泄漏 */
 	private _blobUrl: string = '';
+	/** 最近一帧的 base64（用于关闭时最终落盘） */
+	private _lastFrameBase64: string = '';
+	/** 帧持久化节流：上次落盘时间 / 是否正在落盘 */
+	private _lastPersistAt = 0;
+	private _persisting = false;
 
 	static from(uid: string) {
 		return processes.find((p) => p.uid === uid);
@@ -118,6 +205,15 @@ export class Process extends EventEmitter {
 			 */
 			'browser-closed': () => {
 				console.log('browser-closed', this.uid);
+				// 开启预览图显示时，保留最后一帧作为"浏览器关闭后的预览图"，由界面层展示/关闭
+				if (store.render.setting.browser.screenshotPreview && this.frameUrl) {
+					closedPreviews.set(this.uid, this.frameUrl);
+					this._blobUrl = ''; // 转移 Blob URL 所有权，防止下方 clearFrame 回收
+					// 最终帧立即落盘（不受节流限制），软件重启后可恢复
+					if (this._lastFrameBase64) {
+						persistPreviewFrame(this.uid, this._lastFrameBase64);
+					}
+				}
 				this.clearFrame();
 				// 从进程列表中移除
 				Process.remove(this.uid);
@@ -261,6 +357,8 @@ export class Process extends EventEmitter {
 	launch() {
 		return new Promise<void | number | null>((resolve, reject) => {
 			this.status = 'launching';
+			// 重新启动：清理此前浏览器关闭时保留的预览图
+			clearClosedPreview(this.uid);
 			this.launchPreCheck()
 				.then((result) => {
 					if (result) {
@@ -325,13 +423,26 @@ export class Process extends EventEmitter {
 	}
 
 	/**
-	 * 设置预览帧：base64 -> Blob URL，更新前 revoke 上一帧避免内存泄漏
+	 * 设置预览帧：base64 -> Blob URL，更新前 revoke 上一帧避免内存泄漏。
+	 * 同时节流（2s）持久化到磁盘，保证软件整体退出后重启仍能恢复最后一帧。
 	 */
 	setFrame(base64: string) {
 		if (this._blobUrl) URL.revokeObjectURL(this._blobUrl);
-		const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-		this._blobUrl = URL.createObjectURL(new Blob([bytes], { type: 'image/jpeg' }));
+		this._blobUrl = base64ToBlobUrl(base64);
 		this.frameUrl = this._blobUrl;
+		this._lastFrameBase64 = base64;
+		this.persistFrameThrottled();
+	}
+
+	/** 节流落盘：推流期间最多每 2s 写一次，静默容错 */
+	private persistFrameThrottled() {
+		const now = Date.now();
+		if (this._persisting || now - this._lastPersistAt < 2000) return;
+		this._persisting = true;
+		this._lastPersistAt = now;
+		persistPreviewFrame(this.uid, this._lastFrameBase64).finally(() => {
+			this._persisting = false;
+		});
 	}
 
 	/** 清理预览帧 */

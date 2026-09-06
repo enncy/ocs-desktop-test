@@ -1,6 +1,6 @@
 import { nextTick } from 'vue';
 import { store } from '../store';
-import { Process, processes } from '../utils/process';
+import { Process, processes, clearClosedPreview } from '../utils/process';
 import { resetSearch } from '../utils/entity';
 import { router } from '../route';
 import { Entity } from './entity';
@@ -125,6 +125,9 @@ export class Browser extends Entity implements BrowserOptions {
 		if (process) {
 			await process.close();
 		}
+
+		// 清理浏览器关闭后保留的预览图
+		clearClosedPreview(this.uid);
 
 		const parent = Folder.from(this.parent);
 		Reflect.deleteProperty(parent?.children || {}, this.uid);
