@@ -280,23 +280,41 @@ export class ScriptWorker {
 	}
 
 	/**
-	 * 选择当前 screencast 监控目标页面：按创建顺序（倒序）选择最近创建的非内部页面
-	 * （chrome:// / about:）。新页面创建/加载后由事件驱动（page load / browser page）自动重选，
+	 * 是否为不可推流的浏览器内部页面（chrome://、edge://、about:、extension:// 等）。
+	 * 这些页面无法被 CDP screencast 正常截取，选择目标时必须排除。
+	 */
+	private isInternalScreencastPage(page: Page): boolean {
+		const url = page.url();
+		return (
+			url.startsWith('chrome') ||
+			url.startsWith('edge') ||
+			url.startsWith('about:') ||
+			url.startsWith('extension:') ||
+			url.startsWith('moz-extension:')
+		);
+	}
+
+	/**
+	 * 选择当前 screencast 监控目标页面：按创建顺序（倒序）选择最近创建的可推流页面。
+	 * 新页面创建/加载后由事件驱动（page load / browser page）自动重选，
 	 * 无需也不依赖 visibilityState / 页面注入。
 	 */
 	private pickScreencastPage(): Page | undefined {
 		const pages = this.browser?.pages();
 		if (!pages || pages.length === 0) return undefined;
 		return (
-			[...pages].reverse().find((p) => !p.url().startsWith('chrome') && !p.url().startsWith('about:')) || pages.at(-1)
+			[...pages].reverse().find((p) => !this.isInternalScreencastPage(p)) || pages.at(-1)
 		);
 	}
 
 	/**
-	 * 启动 Page.startScreencast 推流，帧写入磁盘后由本地服务器提供访问。
-	 * 由渲染进程按卡片可见性驱动调用，替代旧的定时截图。
-	 * 帧率自适应：页面活跃时按 everyNthFrame 推流，静止时浏览器不合成、自动停推。
-	 * 推流激活期间按创建顺序跟踪页面：新页面创建/加载完成后自动重选推流目标。
+	 * 启动页面预览推流，帧由 IPC 直传渲染进程，由渲染进程按卡片可见性驱动调用。
+	 *
+	 * 时序：目标页面选定后，先等待页面运行完自动化流程（正在导航/加载时等待其 load），
+	 * 再直接 page.screenshot() 截取一帧作为首帧推送——Page.startScreencast 的首帧可能因
+	 * 页面忙于合成/窗口被遮挡而迟迟不来，截图兜底保证卡片立即有画面；
+	 * 随后建立 Page.startScreencast 实时推流，实时帧到达后自然覆盖首帧。
+	 * 不再使用"首帧看门狗 + 自动重试"：首帧由截图兜底，重选由页面 load / 新页面事件驱动。
 	 */
 	async startScreencast(opts?: { everyNthFrame?: number; maxWidth?: number; maxHeight?: number; quality?: number }) {
 		if (!this.browser || this.screencastStarting) return;
@@ -318,12 +336,35 @@ export class ScriptWorker {
 			this.setupScreencastTracking();
 
 			const page = this.pickScreencastPage();
-			if (!page || page.url().startsWith('chrome')) return;
+			if (!page || this.isInternalScreencastPage(page)) {
+				// 暂无可用页面：不做定时重试，等待页面 load / 新页面出现事件自动驱动进入
+				this.info('[screencast] 暂无可用推流目标页，等待页面加载完成后自动推流');
+				return;
+			}
+
+			if (page.isClosed()) return;
+
+			// 提前挂目标页关闭监听并记录目标：等待/截图期间若页面被自动化流程关闭，可兜底重选
+			this.screencastPageCloseListener = () => this.handleScreencastPageGone();
+			this.screencastPage = page;
+			page.on('close', this.screencastPageCloseListener);
+
+			// 等待目标页面运行完自动化流程：页面仍在加载/导航时先等其 load，
+			// 避免把半加载的自动化页面截为首帧（已加载完成的页面会立即返回）
+			await page
+				.waitForLoadState('load', { timeout: 15 * 1000 })
+				.catch(() => this.debug('[screencast] 等待目标页 load 超时，按当前画面继续'));
+
+			// 直接截图作为首帧并推送（不依赖 Page.startScreencast 的首帧）
+			await this.captureScreencastFirstFrame(page, params);
+			if (!this.screencastParams || page.isClosed()) return; // 等待期间被暂停/停止或页面已关闭
 
 			try {
 				const session = await page.context().newCDPSession(page);
+				const sess = session;
 
 				session.on('Page.screencastFrame', ({ data, sessionId }) => {
+					if (this.screencastSession !== sess) return; // 旧会话迟到的帧，忽略
 					// 先 ack，保证浏览器持续推帧（ack 延迟会导致停推）
 					session.send('Page.screencastFrameAck', { sessionId }).catch(() => {});
 					// 帧直接 IPC 直传渲染进程（base64），不再写盘
@@ -339,16 +380,47 @@ export class ScriptWorker {
 				});
 
 				this.screencastSession = session;
-				this.screencastPage = page;
-
-				// 监控目标页面关闭时自动重选，保证预览连续（命名监听，便于重选/停止时移除）
-				this.screencastPageCloseListener = () => this.handleScreencastPageGone();
-				page.on('close', this.screencastPageCloseListener);
-			} catch {
-				// 静默忽略（页面不可截、session 创建失败等）
+				this.info('[screencast] 实时推流已建立：', page.url());
+			} catch (err) {
+				// 建会话/启流失败：首帧截图已先行展示，等待后续 load / 新页面事件驱动重建
+				this.warn('[screencast] 建立实时推流失败（首帧截图仍可用）：', String(err));
 			}
 		} finally {
 			this.screencastStarting = false;
+			// 启动期间可能错过新页面 load/新页面事件：仅在实时流已建立且最近目标页已变化时补一次重选，
+			// 建流失败场景不做自动重试（首帧截图已兜底，后续由 load / 新页面事件驱动）
+			if (this.screencastParams && this.browser && this.screencastSession) {
+				const current = this.pickScreencastPage();
+				if (current && !current.isClosed() && current !== this.screencastPage) {
+					setTimeout(() => {
+						if (this.screencastParams && this.browser && !this.screencastStarting && this.screencastSession) {
+							this.startScreencast();
+						}
+					}, 300);
+				}
+			}
+		}
+	}
+
+	/**
+	 * 对目标页面直接截图并作为首帧推送给渲染进程。
+	 * 与 Page.startScreencast 无关：即使实时推流因页面忙于合成/窗口遮挡暂不产帧，
+	 * 也能让预览卡片先有画面；失败时静默返回，后续实时帧仍可接管。
+	 */
+	private async captureScreencastFirstFrame(
+		page: Page,
+		params: { everyNthFrame: number; maxWidth: number; maxHeight: number; quality: number }
+	) {
+		if (page.isClosed()) return;
+		try {
+			const buffer = await page.screenshot({
+				type: 'jpeg',
+				quality: params.quality,
+				timeout: 15 * 1000
+			});
+			send('screencast-frame', this.uid, buffer.toString('base64'));
+		} catch (err) {
+			this.debug('[screencast] 截图首帧失败：', String(err));
 		}
 	}
 
