@@ -40,7 +40,7 @@
 					class="as"
 				>
 					<div
-						v-if="!cfg.hide"
+						v-if="isVisible(script, cfg)"
 						class="d-flex gap-2"
 					>
 						<div style="flex: 0 0 100px">
@@ -107,6 +107,7 @@
 <script setup lang="ts">
 import { reactive } from 'vue';
 import { RawAutomationScript } from './index';
+import type { Config } from '@ocs-desktop/app/src/scripts/interface';
 import { iconUrl } from '../../utils';
 import Icon from '../Icon.vue';
 
@@ -120,6 +121,14 @@ const emits = defineEmits<{
 
 /** 加载失败的图标地址集合，命中后改用默认地球图标 */
 const failedIcons = reactive(new Set<string>());
+
+/** 配置项是否可见：无依赖条件时按 hide 判断；有 visibleWhen 时按依赖配置项的当前值判断 */
+function isVisible(script: RawAutomationScript, cfg: Config) {
+	if (cfg.visibleWhen) {
+		return script.configs[cfg.visibleWhen.key]?.value === cfg.visibleWhen.value;
+	}
+	return !cfg.hide;
+}
 
 function remove(index: number) {
 	const arr = [...props.automationScripts];

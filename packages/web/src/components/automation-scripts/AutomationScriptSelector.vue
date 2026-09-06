@@ -106,27 +106,30 @@ const scripts = computed<RawAutomationScript[]>(() => RawScripts.filter((s) => s
 /** 最多展示的配置项数量 */
 const MAX_CONFIG_VISIBLE = 2;
 
-/** 将 configs（对象或数组）规整为数组 */
-function toConfigArray(configs: any = {}) {
-	return Array.isArray(configs) ? configs : Object.values(configs);
+/** 配置项是否可见：无依赖条件时按 hide 判断；有 visibleWhen 时按依赖配置项的值判断（此处用默认值评估） */
+function isVisible(cfg: any, configs: any) {
+	if (cfg.visibleWhen) {
+		return configs[cfg.visibleWhen.key]?.value === cfg.visibleWhen.value;
+	}
+	return !cfg.hide;
 }
 
-/** 过滤掉 hide 的配置项，最多展示 MAX_CONFIG_VISIBLE 个 */
-function visibleConfigs(configs: any = {}) {
-	return toConfigArray(configs)
-		.filter((cfg: any) => !cfg.hide)
+/** 过滤掉 hide 或依赖条件不满足的配置项，最多展示 MAX_CONFIG_VISIBLE 个 */
+function visibleConfigs(configs: any = {}): any[] {
+	return Object.values(configs)
+		.filter((cfg: any) => isVisible(cfg, configs))
 		.slice(0, MAX_CONFIG_VISIBLE);
 }
 
 /** 超出最大展示数量而被省略的配置项数量 */
 function hiddenConfigCount(configs: any = {}) {
-	return Math.max(0, toConfigArray(configs).filter((cfg: any) => !cfg.hide).length - MAX_CONFIG_VISIBLE);
+	return Math.max(0, Object.values(configs).filter((cfg: any) => isVisible(cfg, configs)).length - MAX_CONFIG_VISIBLE);
 }
 
 /** 被省略的配置项标签，用于 tooltip 展示 */
 function hiddenConfigLabels(configs: any = {}) {
-	return toConfigArray(configs)
-		.filter((cfg: any) => !cfg.hide)
+	return Object.values(configs)
+		.filter((cfg: any) => isVisible(cfg, configs))
 		.slice(MAX_CONFIG_VISIBLE)
 		.map((cfg: any) => cfg.label)
 		.join('、');

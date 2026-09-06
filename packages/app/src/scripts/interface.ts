@@ -63,6 +63,8 @@ export interface Config {
 	label: string;
 	value: any;
 	hide?: boolean;
+	/** 依赖项条件：当 configs[visibleWhen.key].value === visibleWhen.value 时才显示该配置项 */
+	visibleWhen?: { key: string; value: any };
 	/** 输入类型，默认 text */
 	type?: ConfigType;
 	/** 是否必填 */

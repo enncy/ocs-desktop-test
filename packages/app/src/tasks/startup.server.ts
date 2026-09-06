@@ -301,8 +301,7 @@ export async function startupServer() {
 				}
 			} catch (err) {
 				// err 可能是 Error / Buffer(stderr) / 字符串，统一转为可读消息，避免客户端收到 [object Object]
-				const message =
-					err instanceof Error ? err.message : Buffer.isBuffer(err) ? err.toString('utf-8') : String(err);
+				const message = err instanceof Error ? err.message : Buffer.isBuffer(err) ? err.toString('utf-8') : String(err);
 				res.json({ canOCR: true, error: message });
 			}
 		} else {

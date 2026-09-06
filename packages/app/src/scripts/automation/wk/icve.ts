@@ -1,11 +1,10 @@
 import { Page } from 'playwright-core';
 import axios from 'axios';
 import { AutomationScript } from '../../script';
-import { getBase64 } from '../../utils';
+import { ensureWideViewport, getBase64 } from '../../utils';
 
 /** 智慧职教 SSO 登录地址 */
-const LOGIN_URL =
-	'https://sso.icve.com.cn/sso/auth?mode=simple&source=2&redirect=https://mooc.icve.com.cn/cms/';
+const LOGIN_URL = 'https://sso.icve.com.cn/sso/auth?mode=simple&source=2&redirect=https://mooc.icve.com.cn/cms/';
 
 /**
  * 表单与阿里云滑块验证码（aliyunCaptcha）选择器（已通过 Playwright MCP 实测）：
@@ -58,10 +57,12 @@ export const ICVELoginScript = new AutomationScript(
 		}
 	},
 	{
-		name: '智慧职教-账号密码登录',
+		name: '智慧职教-自动账号密码登录',
 		icon: 'https://www.icve.com.cn/',
 		async run(page, configs, options?: OCROptions) {
 			try {
+				// 登录页为固定宽度桌面布局，窄视口下关键元素会被裁出可视区，先确保窗口足够宽
+				await ensureWideViewport(page);
 				// 已登录则跳过
 				if (!(await isNotLogin(page))) return;
 
@@ -116,7 +117,10 @@ async function checkAgreement(page: Page): Promise<void> {
  * 每次滑块验证完成后立即检测 el-dialog 错误弹窗（账号不存在/密码错误等），
  * 命中则直接抛错终止重试，不再进入下一轮。
  */
-async function loopVerify(page: Page, opts: Required<Pick<OCROptions, 'ocrApiUrl' | 'detTargetKey' | 'detBackgroundKey'>>) {
+async function loopVerify(
+	page: Page,
+	opts: Required<Pick<OCROptions, 'ocrApiUrl' | 'detTargetKey' | 'detBackgroundKey'>>
+) {
 	let count = 5;
 	let first = true;
 	while (await isNotVerified(page)) {
@@ -194,10 +198,7 @@ async function verify(page: Page, opts: Required<Pick<OCROptions, 'ocrApiUrl' | 
 	if (!bgEl || !pzEl || !sliderEl) return;
 
 	// 等待图片加载完成
-	await Promise.all([
-		bgEl.evaluate(waitImgLoaded),
-		pzEl.evaluate(waitImgLoaded)
-	]);
+	await Promise.all([bgEl.evaluate(waitImgLoaded), pzEl.evaluate(waitImgLoaded)]);
 
 	const bgSrc = await bgEl.getAttribute('src');
 	const pzSrc = await pzEl.getAttribute('src');

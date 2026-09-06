@@ -1,7 +1,7 @@
 import { Page } from 'playwright-core';
 import axios from 'axios';
 import { AutomationScript } from '../../script';
-import { getBase64 } from '../../utils';
+import { ensureWideViewport, getBase64 } from '../../utils';
 
 /**
  * 职教云（zjy2.icve.com.cn）登录地址。
@@ -65,10 +65,12 @@ export const ZJYLoginScript = new AutomationScript(
 		}
 	},
 	{
-		name: '职教云-账号密码登录',
+		name: '职教云-自动账号密码登录',
 		icon: 'https://zjy2.icve.com.cn/',
 		async run(page, configs, options?: OCROptions) {
 			try {
+				// 登录页为固定宽度桌面布局，窄视口下关键元素会被裁出可视区，先确保窗口足够宽
+				await ensureWideViewport(page);
 				// 已登录则跳过
 				if (!(await isNotLogin(page))) return;
 
@@ -139,7 +141,10 @@ async function checkAgreement(page: Page): Promise<void> {
  * 每次滑块验证完成后立即检测 el-dialog 错误弹窗（账号不存在/密码错误等），
  * 命中则直接抛错终止重试，不再进入下一轮。
  */
-async function loopVerify(page: Page, opts: Required<Pick<OCROptions, 'ocrApiUrl' | 'detTargetKey' | 'detBackgroundKey'>>) {
+async function loopVerify(
+	page: Page,
+	opts: Required<Pick<OCROptions, 'ocrApiUrl' | 'detTargetKey' | 'detBackgroundKey'>>
+) {
 	let count = 5;
 	let first = true;
 	while (await isNotVerified(page)) {
@@ -217,10 +222,7 @@ async function verify(page: Page, opts: Required<Pick<OCROptions, 'ocrApiUrl' | 
 	if (!bgEl || !pzEl || !sliderEl) return;
 
 	// 等待图片加载完成
-	await Promise.all([
-		bgEl.evaluate(waitImgLoaded),
-		pzEl.evaluate(waitImgLoaded)
-	]);
+	await Promise.all([bgEl.evaluate(waitImgLoaded), pzEl.evaluate(waitImgLoaded)]);
 
 	const bgSrc = await bgEl.getAttribute('src');
 	const pzSrc = await pzEl.getAttribute('src');
@@ -361,15 +363,11 @@ async function readDialogError(page: Page, timeoutMs = 2000): Promise<string | n
 	const start = Date.now();
 	while (true) {
 		const err = await page.evaluate(() => {
-			for (const node of Array.from(
-				document.querySelectorAll('.el-dialog, .el-message-box')
-			)) {
+			for (const node of Array.from(document.querySelectorAll('.el-dialog, .el-message-box'))) {
 				// 过滤隐藏实例（Element UI 隐藏时 display:none / 尺寸为 0）
 				const el = node as HTMLElement;
 				if (!el.offsetWidth && !el.offsetHeight) continue;
-				const text = (
-					node.querySelector('.el-dialog__body, .el-message-box__message')?.textContent || ''
-				).trim();
+				const text = (node.querySelector('.el-dialog__body, .el-message-box__message')?.textContent || '').trim();
 				// 过滤协议确认框等固定文案
 				if (text && !text.includes('成功') && !text.includes('用户协议及隐私协议')) return text;
 			}

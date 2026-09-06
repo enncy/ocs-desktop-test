@@ -1,22 +1,41 @@
 import type { Page } from 'playwright-core';
-import { breakSliderVerify, breakVerifyCode, getBase64, slowType } from '../../utils';
+import { breakSliderVerify, breakVerifyCode, ensureWideViewport, getBase64, slowType } from '../../utils';
 import { AutomationScript } from '../../script';
 
-export const CXUnitLoginScript = new AutomationScript(
+export const CXLoginScript = new AutomationScript(
 	{
+		loginType: {
+			label: '登录方式',
+			value: 'phone',
+			type: 'select',
+			options: [
+				{ label: '手机密码登录', value: 'phone' },
+				{ label: '学校机构登录', value: 'unit' }
+			]
+		},
+		phone: {
+			label: '手机号',
+			value: '',
+			type: 'text',
+			required: true,
+			placeholder: '请输入手机号',
+			visibleWhen: { key: 'loginType', value: 'phone' }
+		},
 		unit: {
 			label: '学校/单位',
 			value: '',
 			type: 'text',
 			required: true,
-			placeholder: '请输入学校/单位名称'
+			placeholder: '请输入学校/单位名称',
+			visibleWhen: { key: 'loginType', value: 'unit' }
 		},
 		id: {
 			label: '学号/工号',
 			value: '',
 			type: 'text',
 			required: true,
-			placeholder: '请输入学号/工号'
+			placeholder: '请输入学号/工号',
+			visibleWhen: { key: 'loginType', value: 'unit' }
 		},
 		password: {
 			label: '密码',
@@ -27,7 +46,7 @@ export const CXUnitLoginScript = new AutomationScript(
 		}
 	},
 	{
-		name: '超星-学校机构登录',
+		name: '超星-自动登录',
 		icon: 'https://www.chaoxing.com/',
 		async run(
 			page,
@@ -40,57 +59,31 @@ export const CXUnitLoginScript = new AutomationScript(
 			}
 		) {
 			try {
+				// 登录页为固定宽度桌面布局，窄视口下元素会被裁出可视区，先确保窗口足够宽再导航
+				await ensureWideViewport(page);
 				if (await isNotLogin(page)) {
-					/** 其他登录 */
-					await Promise.all([page.waitForLoadState('networkidle'), page.click('#otherlogin')]);
-					await page.waitForTimeout(3000);
-					/** 输入机构名, 并等待搜索结果 */
-					await slowType(page, '#inputunitname', configs.unit);
-					await page.waitForTimeout(2000);
-					/** 点击第一个结果 */
-					await page.click('.filter-list > ul > li');
-					await page.fill('#uname', configs.id);
-					await page.fill('#password', configs.password);
+					if (configs.loginType === 'unit') {
+						/** 其他登录 */
+						await Promise.all([page.waitForLoadState('networkidle'), page.click('#otherlogin')]);
+						await page.waitForTimeout(3000);
+						/** 输入机构名, 并等待搜索结果 */
+						await slowType(page, '#inputunitname', configs.unit);
+						await page.waitForTimeout(2000);
+						/** 点击第一个结果 */
+						await page.click('.filter-list > ul > li');
+						await page.fill('#uname', configs.id);
+						await page.fill('#password', configs.password);
 
-					await login(page, options);
+						await login(page, options);
+					} else {
+						await page.fill('#phone', configs.phone);
+						await page.fill('#pwd', configs.password);
+
+						await login(page);
+					}
 				}
 			} catch (err) {
-				CXUnitLoginScript.emit('script-error', String(err));
-			}
-		}
-	}
-);
-
-export const CXPhoneLoginScript = new AutomationScript(
-	{
-		phone: {
-			label: '手机号',
-			value: '',
-			type: 'text',
-			required: true,
-			placeholder: '请输入手机号'
-		},
-		password: {
-			label: '密码',
-			value: '',
-			type: 'password',
-			required: true,
-			placeholder: '请输入密码'
-		}
-	},
-	{
-		name: '超星-手机密码登录',
-		icon: 'https://www.chaoxing.com/',
-		async run(page, configs) {
-			try {
-				if (await isNotLogin(page)) {
-					await page.fill('#phone', configs.phone);
-					await page.fill('#pwd', configs.password);
-
-					await login(page);
-				}
-			} catch (err) {
-				CXPhoneLoginScript.emit('script-error', String(err));
+				CXLoginScript.emit('script-error', String(err));
 			}
 		}
 	}

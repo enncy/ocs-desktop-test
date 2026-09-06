@@ -4,7 +4,7 @@ import path, { basename } from 'path';
 import fs from 'fs';
 import { chromium, BrowserContext, Page, LaunchOptions, Response, Request, CDPSession } from 'playwright-core';
 import { AppStore } from '../../types';
-import { AutomationScripts } from '../scripts/index';
+import { AutomationScripts, LegacyScriptMappings } from '../scripts/index';
 import { Config } from '../scripts/interface';
 import _get from 'lodash/get';
 import child_process from 'child_process';
@@ -826,28 +826,29 @@ async function runAutomationScripts(opts: {
 		// 执行自动化程序
 		for (const ps of automationScripts) {
 			await step(`正在执行自动化程序 - ${ps.name} ...`);
-			const configs = transformScriptConfigToRaw(ps.configs);
+			let configs = transformScriptConfigToRaw(ps.configs);
 
-			for (const script of AutomationScripts) {
-				if (script.name === ps.name) {
-					script.on('script-data', (...msg) => console.log(...msg));
-					script.on('script-error', (...msg) =>
-						console.error('自动化程序错误：', ...msg.map((m) => ScriptWorker.getTransformedErrorMessage(m)))
+			// 优先匹配合并后的脚本名；未命中时兼容合并前的旧配置名（迁移补全登录方式）
+			const legacy = LegacyScriptMappings.find((m) => m.names.includes(ps.name));
+			const script = AutomationScripts.find((s) => s.name === ps.name) ?? legacy?.script;
+			if (script) {
+				if (legacy) configs = legacy.migrate(configs);
+				script.on('script-data', (...msg) => console.log(...msg));
+				script.on('script-error', (...msg) =>
+					console.error('自动化程序错误：', ...msg.map((m) => ScriptWorker.getTransformedErrorMessage(m)))
+				);
+				try {
+					await script.run(await browser.newPage(), configs, {
+						ocrApiUrl: `http://localhost:${serverPort}/ocr`,
+						ocrApiImageKey: 'image',
+						detBackgroundKey: 'det_bg',
+						detTargetKey: 'det_target'
+					});
+				} catch (err) {
+					console.error(
+						'自动化程序错误：',
+						ScriptWorker.getTransformedErrorMessage(err instanceof Error ? err.message : String(err))
 					);
-					try {
-						await script.run(await browser.newPage(), configs, {
-							ocrApiUrl: `http://localhost:${serverPort}/ocr`,
-							ocrApiImageKey: 'image',
-							detBackgroundKey: 'det_bg',
-							detTargetKey: 'det_target'
-						});
-					} catch (err) {
-						console.error(
-							'自动化程序错误：',
-							ScriptWorker.getTransformedErrorMessage(err instanceof Error ? err.message : String(err))
-						);
-					}
-					break;
 				}
 			}
 		}

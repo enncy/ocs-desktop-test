@@ -35,7 +35,15 @@
 				</template>
 
 				<template #data="{ record, rowIndex, column }">
+					<a-select
+						v-if="selectOptions[column.dataIndex]"
+						v-model="record[column.dataIndex]"
+						size="mini"
+						:options="selectOptions[column.dataIndex]"
+						@change="() => onRecordInput(rowIndex)"
+					></a-select>
 					<a-input
+						v-else
 						v-model="record[column.dataIndex]"
 						size="mini"
 						@input="() => onRecordInput(rowIndex)"
@@ -122,12 +130,21 @@ const emits = defineEmits<{
 
 const { rawAutomationScript } = toRefs(props);
 
-/** 将 configs 对象转换成 config 数组 */
+/** 将 configs 对象转换成 config 数组（批量创建模式下每行独立，保留全部可见字段） */
 const arrayLikeConfigs = computed(() =>
 	Object.keys(rawAutomationScript.value.configs)
 		.filter((k) => !rawAutomationScript.value.configs[k].hide)
 		.map((k) => ({ ...rawAutomationScript.value.configs[k], key: k }))
 );
+
+/** 按列 key 收集 select 类型配置的选项（表格内以下拉渲染） */
+const selectOptions = computed<Record<string, Config['options']>>(() => {
+	const map: Record<string, Config['options']> = {};
+	for (const config of arrayLikeConfigs.value) {
+		if (config.type === 'select') map[config.key] = config.options;
+	}
+	return map;
+});
 
 const state = reactive({
 	/** 分页 */

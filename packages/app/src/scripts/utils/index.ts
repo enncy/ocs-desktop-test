@@ -106,3 +106,55 @@ export function getBase64(url: string) {
 		})
 		.then((response) => Buffer.from(response.data, 'binary').toString('base64'));
 }
+
+/**
+ * 确保页面拥有足够宽的视口，以便登录页按「桌面布局」完整显示。
+ *
+ * 为什么需要：超星/智慧树/智慧职教/职教云/MOOC 等登录页均为固定宽度的桌面布局。
+ * 视口过窄（小屏、系统缩放后的默认窗口等）时页面既不会收缩变形、也不提供横向滚动，
+ * 表单/登录按钮等关键元素会被裁在可视区外 —— Playwright 点击前的自动滚动
+ * 「找不到可滚动的空间」而失败，表现为元素未显示、点不到；手动拉宽窗口后布局
+ * 恢复、元素才可见可点（已用多分辨率实测复现）。
+ *
+ * 本函数只放大、不缩小，失败时静默返回（尽力而为）：
+ * - 带显式 viewport 的上下文（headless 等）：直接 setViewportSize；
+ * - 真实浏览器窗口（persistent context + viewport:null）：通过 CDP 调大窗口 bounds。
+ *
+ * 建议在 run() 内导航登录页之前调用。
+ */
+export async function ensureWideViewport(page: Page, minCssW = 1280, minCssH = 720): Promise<void> {
+	// 真实窗口的 viewportSize() 为 null（视口跟随窗口）；仅在上下文显式设置了 viewport 时才可 setViewportSize
+	const cur = page.viewportSize();
+	if (cur?.width) {
+		if (cur.width >= minCssW) return;
+		try {
+			await page.setViewportSize({ width: minCssW, height: Math.max(cur.height, minCssH) });
+			await page.waitForTimeout(150);
+		} catch {
+			// setViewportSize 不支持时（如 viewport:null 窗口）回退到下面 CDP 调整窗口
+		}
+		return;
+	}
+
+	// 有头真实窗口：用 CDP 调整窗口 bounds（单位为 DIP，与页面 CSS 像素一致）
+	try {
+		const cdp = await page.context().newCDPSession(page);
+		// Browser.getWindowForTarget 不传 targetId 时作用于当前 CDP session 所在 target
+		const { windowId } = await cdp.send('Browser.getWindowForTarget');
+		const { bounds } = await cdp.send('Browser.getWindowBounds', { windowId });
+		const bw = bounds?.width || 0;
+		const bh = bounds?.height || 0;
+		if (bw >= minCssW) return;
+		const avail = await page.evaluate(() => ({ w: screen.availWidth, h: screen.availHeight }));
+		const nextW = Math.min(minCssW, avail.w);
+		const nextH = Math.max(bh, Math.min(minCssH, avail.h));
+		if (nextW <= bw && nextH <= bh) return;
+		await cdp.send('Browser.setWindowBounds', {
+			windowId,
+			bounds: { ...bounds, width: nextW, height: nextH, windowState: 'normal' }
+		});
+		await page.waitForTimeout(200);
+	} catch {
+		// 无 CDP 权限时静默跳过，交由后续交互兜底
+	}
+}

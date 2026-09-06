@@ -1,7 +1,7 @@
 import { Frame, Page } from 'playwright-core';
 import axios from 'axios';
 import { AutomationScript } from '../../script';
-import { getBase64 } from '../../utils';
+import { ensureWideViewport, getBase64 } from '../../utils';
 
 /** 中国大学MOOC 首页 */
 const HOME_URL = 'https://www.icourse163.org/';
@@ -75,10 +75,12 @@ export const ICourseLoginScript = new AutomationScript(
 		}
 	},
 	{
-		name: '中国大学MOOC-账号登录',
+		name: '中国大学MOOC-自动账号登录',
 		icon: 'https://www.icourse163.org/',
 		async run(page, configs, options?: OCROptions) {
 			try {
+				// 登录页为固定宽度桌面布局，窄视口下关键元素会被裁出可视区，先确保窗口足够宽
+				await ensureWideViewport(page);
 				// 已登录则跳过
 				if (!(await isNotLogin(page))) return;
 
@@ -130,9 +132,7 @@ export const ICourseLoginScript = new AutomationScript(
 async function isNotLogin(page: Page): Promise<boolean> {
 	// commit：导航提交即返回，不等待 domcontentloaded——
 	// React SPA 首屏在真实环境（扩展注入/网络波动）可能十余秒，等待其完成是「自动登录开始前等 20s」的主因之一
-	await page
-		.goto(HOME_URL, { waitUntil: 'commit', timeout: 15000 })
-		.catch(() => {});
+	await page.goto(HOME_URL, { waitUntil: 'commit', timeout: 15000 }).catch(() => {});
 	// 页面为 React SPA，导航栏由 JS 动态渲染：等待导航容器或登录按钮任一出现，
 	// 避免 bundle 未执行时误判（已登录无按钮）/ 干等到超时
 	await Promise.race([
@@ -153,11 +153,9 @@ function isModalOpen(page: Page): Promise<boolean> {
 	return page
 		.locator('.ux-modal.web-login-modal')
 		.first()
-		.evaluate(
-			(el) => !!(el as HTMLElement).offsetWidth || !!(el as HTMLElement).offsetHeight,
-			undefined,
-			{ timeout: 500 }
-		)
+		.evaluate((el) => !!(el as HTMLElement).offsetWidth || !!(el as HTMLElement).offsetHeight, undefined, {
+			timeout: 500
+		})
 		.catch(() => false);
 }
 
