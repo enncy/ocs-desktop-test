@@ -319,14 +319,14 @@ function getBrowserInstance(uid: string): Browser | undefined {
 	return Browser.from(uid);
 }
 
-/** 获取浏览器运行进程 */
+/** 获取浏览器运行进程（仅仍在运行时返回，否则 undefined） */
 function getProcess(uid: string): Process | undefined {
-	return Process.from(uid);
+	return Process.fromRunning(uid);
 }
 
-/** 浏览器是否已启动 */
+/** 浏览器是否已启动（仍在运行且状态为 launched） */
 function isLaunched(uid: string): boolean {
-	return getProcess(uid)?.status === 'launched';
+	return Process.fromRunning(uid)?.status === 'launched';
 }
 
 /** 是否显示截图预览（已启动且用户开启了截图预览） */
@@ -399,7 +399,7 @@ const previewBrowserName = ref('');
 const previewBrowser = computed(() => allBrowsers.value.find((b) => b.uid === previewUid.value));
 
 /** 预览弹窗展示的帧是否为实时推流（浏览器运行中），否则为关闭前保留的截图 */
-const previewIsLive = computed(() => !!getProcess(previewUid.value));
+const previewIsLive = computed(() => Process.isRunning(previewUid.value));
 
 /** 卡片网格最大宽度：3/4 列时加宽，避免卡片被挤得太小 */
 const cardGridMaxWidth = computed(() => {

@@ -79,7 +79,7 @@ export async function restoreClosedPreviews(browsers: { uid: string }[]) {
 	try {
 		const dir = await previewFolder();
 		for (const b of browsers) {
-			if (Process.from(b.uid) || closedPreviews.has(b.uid)) continue;
+			if (Process.isRunning(b.uid) || closedPreviews.has(b.uid)) continue;
 			try {
 				const file = await remote.path.call('join', dir, `${b.uid}.jpg`);
 				if (!(await remote.fs.call('existsSync', file))) continue;
@@ -142,6 +142,21 @@ export class Process extends EventEmitter {
 		if (index !== -1) {
 			processes.splice(index, 1);
 		}
+	}
+
+	/**
+	 * 进程是否仍在运行（存在于响应式 processes 数组中）。
+	 * Process.remove 用 splice 移除后，Process.from 仍返回失效引用（status 滞留 'launched'），
+	 * 用户直接关闭浏览器窗口时会导致界面误判仍在运行（显示"置顶"而非"启动"）。
+	 * 判断"是否运行中"请统一使用此方法，而非 Process.from(uid) !== undefined。
+	 */
+	static isRunning(uid: string): boolean {
+		return processes.some((p) => p.uid === uid);
+	}
+
+	/** 仅当进程仍在运行时返回其引用，否则 undefined（替代 Process.from 用于运行状态判定） */
+	static fromRunning(uid: string): Process | undefined {
+		return Process.isRunning(uid) ? Process.from(uid) : undefined;
 	}
 
 	constructor(browser: Browser, launchOptions: LaunchOptions) {

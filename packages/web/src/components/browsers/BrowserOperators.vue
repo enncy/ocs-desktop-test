@@ -122,7 +122,10 @@ const props = withDefaults(
 	}
 );
 const instance = Browser.from(props.browser.uid);
-const process = computed(() => Process.from(props.browser.uid));
+// 进程是否运行以其是否仍在响应式 processes 数组中为准：
+// Process.remove 用 splice 移除后，Process.from 仍返回失效引用（status 滞留 'launched'），
+// 用户直接关闭浏览器窗口（非点卡片关闭按钮）时会导致卡片一直显示"置顶"而非"启动"。
+const process = computed(() => Process.fromRunning(props.browser.uid));
 </script>
 
 <style scoped lang="less">

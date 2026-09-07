@@ -218,7 +218,7 @@ async function launchAll() {
 			multipleOperationRegister('批量启动', async (canRun) => {
 				const browsers = currentCheckedBrowsers.value
 					.map((e) => {
-						if (Process.from(e.uid) === undefined) {
+						if (!Process.isRunning(e.uid)) {
 							return e;
 						} else {
 							return undefined;
@@ -247,7 +247,7 @@ async function launchAll() {
 }
 
 async function closeAll() {
-	if (currentCheckedBrowsers.value.every((b) => Process.from(b.uid) === undefined)) {
+	if (currentCheckedBrowsers.value.every((b) => !Process.isRunning(b.uid))) {
 		Message.warning('没有浏览器正在运行');
 		return;
 	}
