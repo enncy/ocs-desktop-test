@@ -3,7 +3,6 @@ const del = require('del');
 const zip = require('gulp-zip');
 const { execOut } = require('./utils');
 const { readFileSync } = require('fs');
-const chromeInstall = require('./chrome.install').default;
 const { version } = JSON.parse(readFileSync('../packages/app/package.json').toString());
 
 function buildWeb() {
@@ -31,4 +30,5 @@ function packResource() {
 		.pipe(dest('../packages/app/dist'));
 }
 
-exports.default = series(cleanOutput, buildWeb, chromeInstall, buildApp, packResource);
+// 精简版构建：安装包不再内置浏览器压缩包，首次启动时由 init.chrome.ts 从远程下载源拉取
+exports.default = series(cleanOutput, buildWeb, buildApp, packResource);

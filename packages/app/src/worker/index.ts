@@ -304,9 +304,7 @@ export class ScriptWorker {
 	private pickScreencastPage(): Page | undefined {
 		const pages = this.browser?.pages();
 		if (!pages || pages.length === 0) return undefined;
-		return (
-			[...pages].reverse().find((p) => !this.isInternalScreencastPage(p)) || pages.at(-1)
-		);
+		return [...pages].reverse().find((p) => !this.isInternalScreencastPage(p)) || pages.at(-1);
 	}
 
 	/**

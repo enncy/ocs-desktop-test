@@ -14,12 +14,10 @@ export const BUILTIN_CHROME_FILENAME =
 /**
  * 内置 Chrome 解压根目录。
  *
- * - 打包模式：`resources/bin/chrome`
- *   （electron-builder 的 extraResources 把 `bin/chrome/<platform>-<arch>/` 拍平到此）
- * - 开发模式：`<projectRoot>/bin/chrome/<platform>-<arch>`
- *   （scripts/chrome.install.js 的 pack() 输出到该平台子目录）
+ * - 打包模式：`resources/bin/chrome`（旧版完整包的遗留布局，精简版安装包不再包含）
+ * - 开发模式：`<projectRoot>/bin/chrome/<platform>-<arch>`（本地手动放置 chrome.zip 可跳过下载）
  *
- * 平台串 `<platform>-<arch>` 与 chrome.install.js 的 `${PLATFORM || 'win'}-${ARCH || 'x64'}` 保持一致。
+ * 精简版安装包中上述路径通常不存在，init.chrome.ts 会转为从远程下载源拉取。
  */
 export function getBuiltinChromeRoot(): string {
 	if (app.isPackaged) {

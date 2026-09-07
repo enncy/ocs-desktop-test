@@ -22,7 +22,9 @@ function formatConfigValue(key: string, cfg: Config): string | undefined {
 	if (!str.trim()) return undefined;
 
 	const sensitive =
-		cfg.type === 'password' || /password|pass|密钥|秘钥|口令|token/i.test(key) || /密钥|秘钥|口令/i.test(cfg.label || '');
+		cfg.type === 'password' ||
+		/password|pass|密钥|秘钥|口令|token/i.test(key) ||
+		/密钥|秘钥|口令/i.test(cfg.label || '');
 	if (sensitive) {
 		const len = Math.min(Math.max(str.length, 6), 12);
 		return '*'.repeat(len);
@@ -67,7 +69,10 @@ function buildAutomationText(scripts: RawAutomationScript[]): string {
  * - 备注为空但存在自动化程序 → 用自动化程序信息构建（isAuto=true，敏感信息掩码）
  * - 都没有 → 空（isAuto=false）
  */
-export function getDisplayNotes(browser: { notes?: string; automationScripts?: RawAutomationScript[] }): AutomationNotesResult {
+export function getDisplayNotes(browser: {
+	notes?: string;
+	automationScripts?: RawAutomationScript[];
+}): AutomationNotesResult {
 	const userNotes = browser.notes?.trim();
 	if (userNotes) {
 		return { text: browser.notes as string, isAuto: false };

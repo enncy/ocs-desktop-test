@@ -8,6 +8,16 @@
 	"productName": "OCS Desktop",
 	"asar": false,
 	"copyright": "Copyright © 2021 ${author}",
+	"afterPack": "./scripts/after-pack.js",
+	"files": [
+		"**/*",
+		"!src",
+		"!*.ts",
+		"!tsconfig.json",
+		"!electron.builder.json",
+		"!**/*.map",
+		"!node_modules/xlsx/dist/{shim.min,xlsx.core.min,xlsx.extendscript,xlsx.full.min,xlsx,xlsx.min,xlsx.mini.min}.js"
+	],
 	"nsis": {
 		"oneClick": true
 	},
@@ -19,14 +29,7 @@
 				"target": "nsis"
 			}
 		],
-		"requestedExecutionLevel": "highestAvailable",
-		"extraResources": [
-			{
-				"from": "../../bin/chrome/win-${arch}/",
-				"to": "bin/chrome",
-				"filter": ["**/*.zip"]
-			}
-		]
+		"requestedExecutionLevel": "highestAvailable"
 	},
 	"mac": {
 		"icon": "public/favicon.icns",
@@ -34,13 +37,6 @@
 		"target": [
 			{
 				"target": "dmg"
-			}
-		],
-		"extraResources": [
-			{
-				"from": "../../bin/chrome/mac-${arch}/",
-				"to": "bin/chrome",
-				"filter": ["**/*.zip"]
 			}
 		]
 	},
@@ -50,13 +46,6 @@
 		"target": [
 			{
 				"target": "AppImage"
-			}
-		],
-		"extraResources": [
-			{
-				"from": "../../bin/chrome/linux-${arch}/",
-				"to": "bin/chrome",
-				"filter": ["**/*.zip"]
 			}
 		]
 	}

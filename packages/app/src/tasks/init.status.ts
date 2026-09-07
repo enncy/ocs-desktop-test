@@ -53,6 +53,19 @@ export function setInitStatus(partial: { status: InitStatus; message: string }):
 	initStatus.message = partial.message;
 }
 
+/**
+ * 原地更新当前 active 日志条目的文本（不追加新条目）。
+ * 用于下载进度等高频刷新场景，避免日志列表被进度文案刷屏。
+ * 当前没有 active 条目时静默忽略。
+ */
+export function updateInitLogText(text: string): void {
+	const last = initStatus.logs[initStatus.logs.length - 1];
+	if (last && last.state === 'active') {
+		last.text = text;
+		initStatus.message = text;
+	}
+}
+
 /** 读取初始化状态（返回副本，避免外部直接修改） */
 export function getInitStatus(): InitStatusState {
 	return {
