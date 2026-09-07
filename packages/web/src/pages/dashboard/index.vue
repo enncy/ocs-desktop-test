@@ -175,13 +175,13 @@
 									position="tl"
 								>
 									<template #content>
-										<div>备注描述</div>
+										<div>备注描述{{ getDisplayNotes(pro.browser).isAuto ? '（来自自动化程序）' : '' }}</div>
 										<a-divider class="mt-1 mb-1" />
-										<div>
-											{{ pro.browser.notes }}
+										<div style="white-space: pre-line">
+											{{ getDisplayNotes(pro.browser).text }}
 										</div>
 									</template>
-									<span> {{ pro.browser.notes }} </span>
+									<span> {{ getDisplayNotes(pro.browser).text }} </span>
 								</a-tooltip>
 							</a-col>
 						</a-row>
@@ -202,6 +202,7 @@ import Tags from '../../components/Tags.vue';
 import EntityOperator from '../../components/EntityOperator.vue';
 import Icon from '../../components/Icon.vue';
 import UsageAlertCollapse from '../../components/UsageAlertCollapse.vue';
+import { getDisplayNotes } from '../../utils/display-notes';
 
 /** 运行中的进程（启动中 + 已启动） */
 const runningProcesses = computed(() => processes.filter((p) => p.status === 'launched' || p.status === 'launching'));

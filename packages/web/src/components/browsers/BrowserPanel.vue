@@ -19,7 +19,7 @@
 			<a-descriptions-item label="备注描述">
 				<a-textarea
 					v-model="instance.notes"
-					placeholder="备注为空~"
+					:placeholder="getDisplayNotes(instance).isAuto ? '留空则显示自动化程序信息' : '备注为空~'"
 					allow-clear
 				/>
 			</a-descriptions-item>
@@ -254,6 +254,7 @@ import XTerm from '../XTerm.vue';
 import { electron } from '../../utils/node';
 import { remote } from '../../utils/remote';
 import UsageAlertCollapse from '../UsageAlertCollapse.vue';
+import { getDisplayNotes } from '../../utils/display-notes';
 
 const props = defineProps<{
 	browser: BrowserOptions;

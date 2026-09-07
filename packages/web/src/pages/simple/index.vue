@@ -169,12 +169,19 @@
 
 										<a-card-meta v-if="!showCover(browser.uid)">
 											<template #description>
-												<!-- 备注/描述 -->
+												<!-- 备注/描述：为空时回退为自动化程序信息（敏感信息掩码） -->
 												<div
-													v-if="browser.notes?.trim()"
+													v-if="getDisplayNotes(browser).text"
 													class="card-notes"
+													:title="getDisplayNotes(browser).text"
 												>
-													{{ browser.notes }}
+													<span
+														v-if="getDisplayNotes(browser).isAuto"
+														class="card-notes-autoflag"
+													>
+														自动
+													</span>
+													{{ getDisplayNotes(browser).text }}
 												</div>
 												<div
 													v-else
@@ -296,6 +303,7 @@ import BeginnerGuide from '../../components/BeginnerGuide.vue';
 import UserScriptListPage from '../../components/UserScriptListPage.vue';
 import EnvironmentAlert from '../../components/EnvironmentAlert.vue';
 import NotificationBanner from '../../components/NotificationBanner.vue';
+import { getDisplayNotes } from '../../utils/display-notes';
 
 const state = reactive({
 	activeTab: 'browsers'
@@ -548,8 +556,28 @@ onMounted(() => {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		display: -webkit-box;
-		-webkit-line-clamp: 2;
+		// 加高显示行数，保证自动化程序信息（账号/学校/学号等多行）可见，超出仍省略
+		-webkit-line-clamp: 5;
 		-webkit-box-orient: vertical;
+		// 任意位置允许断行，防止长链接/长账号/长中文串不换行导致备注区域超出卡片界面
+		overflow-wrap: anywhere;
+		word-break: break-all;
+		white-space: pre-line;
+		cursor: default;
+		// 约束最大宽度不超过卡片内容区，避免溢出
+		max-width: 100%;
+
+		.card-notes-autoflag {
+			display: inline-block;
+			padding: 0 5px;
+			margin-right: 4px;
+			border-radius: 4px;
+			font-size: 11px;
+			line-height: 16px;
+			color: var(--theme-primary-color);
+			background-color: var(--theme-primary-bg, rgba(var(--primary-6), 0.12));
+			vertical-align: 1px;
+		}
 	}
 }
 
@@ -708,6 +736,12 @@ body[arco-theme='dark'] & {
 
 :deep(.arco-card-meta-footer) {
 	align-items: start !important;
+}
+
+// 备注与标签并排布局时，约束内容区不超出卡片，防止宽内容溢出
+::deep(.arco-card-meta-content) {
+	flex: 1;
+	min-width: 0;
 }
 
 /* 弹窗标题：浏览器名 + 操作按钮 */
