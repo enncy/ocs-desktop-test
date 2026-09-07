@@ -1,4 +1,4 @@
-import { ipcMain, app, dialog, BrowserWindow, safeStorage, nativeTheme } from 'electron';
+import { ipcMain, app, dialog, BrowserWindow, safeStorage, nativeTheme, net } from 'electron';
 import { Logger } from '../logger';
 import { autoLaunch } from './auto.launch';
 import axios, { AxiosRequestConfig } from 'axios';
@@ -16,6 +16,7 @@ import { updateApp } from './updater';
 import { AutomationScripts } from '../scripts';
 import { AutomationScript } from '../scripts/script';
 import { getBrowserMajorVersion, getExtensionPaths } from '../utils/browser';
+import { installBuiltinChrome } from './init.chrome';
 import { AppStore } from '../../types';
 import { encryptRenderString, decryptRenderString } from '../crypto';
 import { hideToTray, showMainWindow, quitApp, cancelQuit, destroyTray } from '../tray';
@@ -117,6 +118,17 @@ const methods = {
 	getValidBrowsers: getValidBrowsers,
 	getBrowserMajorVersion: getBrowserMajorVersion,
 	getExtensionPaths: getExtensionPaths,
+	/**
+	 * 下载并安装内置浏览器（供前端「环境修复」复用多源下载，不重启应用）。
+	 * 进度通过 webContents.send('builtin-chrome-install-progress', progress) 推送。
+	 * @returns 安装完成后的浏览器可执行文件路径
+	 */
+	installBuiltinChrome: (): Promise<string> =>
+		installBuiltinChrome((progress) => {
+			if (win && !win.isDestroyed()) {
+				win.webContents.send('builtin-chrome-install-progress', progress);
+			}
+		}),
 	systemProcesses: () => si.processes(),
 	exportExcel: exportExcel,
 	statisticFolderSize: statisticFolderSize,
@@ -169,27 +181,73 @@ const methods = {
 		// 文件名按 url hash 命名，同脚本覆盖写，不同脚本不冲突。
 		await fs.promises.mkdir(tmpDir, { recursive: true });
 
-		const fetchOnce = (u: string) =>
-			axios.get(u, { timeout: 30 * 1000, responseType: 'text', validateStatus: () => true }).catch(() => null);
+		const TIMEOUT = 30 * 1000;
+		const logger = Logger('remote');
+		type FetchResult = { data?: string; error?: string };
+
+		/**
+		 * Chromium 网络栈下载：net.fetch 走默认 session，自动遵循系统代理与 Chromium 证书策略，
+		 * 与用户浏览器网络行为一致。net.fetch 无超时参数，用 AbortController 实现。
+		 */
+		const fetchViaNet = async (u: string): Promise<FetchResult> => {
+			const controller = new AbortController();
+			const timer = setTimeout(() => controller.abort(), TIMEOUT);
+			try {
+				const res = await net.fetch(u, { signal: controller.signal });
+				if (!res.ok) {
+					return { error: `HTTP ${res.status} ${res.statusText}`.trim() };
+				}
+				return { data: await res.text() };
+			} catch (e: any) {
+				// AbortError 即超时；其余为 Chromium 网络错误（ERR_PROXY_CONNECTION_FAILED、ERR_NAME_NOT_RESOLVED 等）
+				const reason =
+					e?.name === 'AbortError'
+						? `请求超时（${TIMEOUT / 1000} 秒）`
+						: `${e?.name || 'Error'}: ${e?.message || String(e)}`;
+				return { error: reason };
+			} finally {
+				clearTimeout(timer);
+			}
+		};
+
+		/** axios 直连兜底（Node 网络栈）：失败返回真实错误，不再吞错。 */
+		const fetchViaAxios = async (u: string): Promise<FetchResult> => {
+			try {
+				const res = await axios.get(u, { timeout: TIMEOUT, responseType: 'text', validateStatus: () => true });
+				if (!res.status || res.status < 200 || res.status >= 300) {
+					return { error: `HTTP ${res.status || 'unknown'}` };
+				}
+				return { data: typeof res.data === 'string' ? res.data : String(res.data) };
+			} catch (e: any) {
+				// axios 网络错误携带 code（ECONNRESET、ETIMEDOUT、ENOTFOUND、证书错误等）
+				return { error: e?.code ? `${e.code}: ${e.message}` : e?.message || String(e) };
+			}
+		};
 
 		return Promise.all(
 			urls.map(async (url) => {
 				try {
-					let res = await fetchOnce(url);
-					if (!res || !res.status || res.status < 200 || res.status >= 300) {
-						// 网络波动，重试一次
-						res = await fetchOnce(url);
+					// net.fetch 优先（系统代理，与浏览器一致），失败回退 axios 直连，各自保留真实错误原因
+					let result = await fetchViaNet(url);
+					if (result.error) {
+						const netError = result.error;
+						result = await fetchViaAxios(url);
+						if (result.error) {
+							result.error = `代理网络栈失败[${netError}]，直连失败[${result.error}]`;
+						}
 					}
-					if (!res || !res.status || res.status < 200 || res.status >= 300) {
-						return { url, path: '', success: false, error: `HTTP ${res?.status || 'unknown'}` };
+					if (result.error) {
+						logger.error('用户脚本预下载失败', { url, error: result.error });
+						return { url, path: '', success: false, error: result.error };
 					}
-					const data = typeof res.data === 'string' ? res.data : String(res.data);
 					const hash = crypto.createHash('md5').update(url).digest('hex').slice(0, 12);
 					const filePath = path.join(tmpDir, `${hash}.user.js`);
-					await fs.promises.writeFile(filePath, data, 'utf-8');
+					await fs.promises.writeFile(filePath, result.data!, 'utf-8');
 					return { url, path: filePath, success: true };
 				} catch (e: any) {
-					return { url, path: '', success: false, error: e?.message || String(e) };
+					const reason = e?.message || String(e);
+					logger.error('用户脚本预下载异常', { url, error: reason });
+					return { url, path: '', success: false, error: reason };
 				}
 			})
 		);

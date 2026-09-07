@@ -237,7 +237,8 @@ export class ScriptWorker {
 				...options
 			});
 		} catch (err) {
-			// 浏览器异常关闭
+			// 启动失败统一处理：发出 browser-closed 并退出进程，
+			// 避免渲染进程 Process.status 滞留 'launching'、卡片一直转圈只能重启软件恢复。
 			if (err instanceof Error) {
 				if (
 					err.message.includes('browser has been closed') ||
@@ -258,13 +259,15 @@ export class ScriptWorker {
 					} else {
 						console.error('异常关闭，请尝试重启浏览器。', err.message.substring(0, 500));
 					}
-					this.close();
 				} else {
-					console.error('错误 : ', err.message.substring(0, 500));
+					// 其它启动错误（如无法读取浏览器路径/权限/启动参数非法等）
+					console.error('浏览器启动失败 : ', err.message.substring(0, 500));
 				}
 			} else {
 				console.error('未知错误 : ', String(err).substring(0, 500));
 			}
+			// 统一走 close()：内部会 send('browser-closed') 并 process.exit()
+			return await this.close();
 		}
 
 		// 浏览器初始化完成

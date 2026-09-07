@@ -220,6 +220,11 @@ export class Process extends EventEmitter {
 			 */
 			'browser-closed': () => {
 				console.log('browser-closed', this.uid);
+				// 启动失败时 worker 会统一走 close() 发回 browser-closed：
+				// 若状态仍停留在 launching，回落为 closed，解除卡片一直转圈的状态
+				if (this.status === 'launching') {
+					this.status = 'closed';
+				}
 				// 开启预览图显示时，保留最后一帧作为"浏览器关闭后的预览图"，由界面层展示/关闭
 				if (store.render.setting.browser.screenshotPreview && this.frameUrl) {
 					closedPreviews.set(this.uid, this.frameUrl);
@@ -380,6 +385,11 @@ export class Process extends EventEmitter {
 						this.once('launched', () => {
 							resolve();
 						});
+						// 启动失败：worker 统一走 close() 发回 browser-closed 并退出进程，
+						// 此处通过 browser-closed/shell exit 使 Promise 得以 settle，不再悬挂
+						this.once('browser-closed', () => {
+							resolve(null);
+						});
 						this.shell?.once('exit', (code) => {
 							resolve(code);
 						});
@@ -389,9 +399,16 @@ export class Process extends EventEmitter {
 							userscripts: result.userscripts,
 							...this.launchOptions
 						});
+					} else {
+						// launchPreCheck 失败（路径为空/不存在/读取错误等）：状态回落，Promise 结束
+						this.status = 'closed';
+						resolve(null);
 					}
 				})
-				.catch(reject);
+				.catch((err) => {
+					this.status = 'closed';
+					reject(err);
+				});
 		});
 	}
 
