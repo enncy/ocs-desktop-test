@@ -233,13 +233,13 @@
 
 <script setup lang="ts">
 import { t, store } from '../store';
-import { download, sleep } from '../utils';
+import { sleep } from '../utils';
 import { remote } from '../utils/remote';
 import { reactive, watch, nextTick, onMounted } from 'vue';
 import { Message, Modal } from '@arco-design/web-vue';
 import { installExtensions } from '../utils/extension';
 import { addScriptFromUrl } from '../utils/user-scripts';
-import { child_process } from '../utils/node';
+import { electron } from '../utils/node';
 import { Environment } from '../utils/environment';
 import { getDefaultBrowserName, newBrowser } from '../utils/browser';
 import { Browser } from '../fs/browser';
@@ -278,113 +278,53 @@ const _preset_steps = {
 				return;
 			}
 
-			// =========================== 安装新版本 ===========================
-			if (process.platform !== 'win32' && process.platform !== 'darwin') {
-				step.error = t(
-					'setup_error_un_support_platform_when_auto_download_new_version',
-					'当前系统不支持自动更新软件，请前往官网 https://docs.ocsjs.com \n手动下载最新软件并安装和启动。'
-				);
-				return;
-			}
-
-			const infos = await Environment.getRemoteInfos();
-			console.log(infos);
-			const app_download_url = infos?.versions[0].app_downloads?.[process.platform];
-			if (!app_download_url) {
-				step.error = t(
-					'setup_error_no_windows_download_url_when_auto_download_new_version',
-					`未找到 ${process.platform} 版本的下载地址，请前往官网 https://docs.ocsjs.com \n手动下载最新软件并安装和启动。`,
-					{ platform: process.platform }
-				);
-				return;
-			}
-
-			const dest = await remote.path.call(
-				'join',
-				store.paths.downloadFolder,
-				app_download_url.split('/').pop() ||
-					(process.platform === 'win32' ? 'ocs-desktop-installer.exe' : 'ocs-desktop-installer.dmg')
-			);
-
-			step.description = t(
-				'setup_error_auto_download_new_version_when_no_valid_browser',
-				'无可用的浏览器，正在下载并更新软件至最新版本： ' + infos?.versions[0]?.tag,
-				{ version: infos?.versions[0]?.tag || '' }
-			);
+			// =========================== 下载并安装内置浏览器 ===========================
+			// 精简版安装包不再内置浏览器：复用环境初始化流程，从多源（镜像/官方/自建CDN）下载 chrome 二进制并解压配置
+			step.description = '未检测到可用浏览器，将下载并安装内置浏览器。';
 			try {
-				const result = await new Promise<string | boolean | undefined>((resolve, reject) => {
+				await new Promise<void>((resolve, reject) => {
 					Modal.confirm({
-						title: '警告',
-						content: '当前浏览器版本过高，点击确认将自动下载最新版本软件，下载后将有内置浏览器可用。',
+						title: '下载内置浏览器',
+						content:
+							'当前无可用的浏览器，点击确认将从多源下载并安装软件内置浏览器（约 150MB），安装完成后自动配置为默认浏览器。',
 						maskClosable: false,
 						closable: false,
 						cancelText: '取消',
 						okText: '一键下载并安装',
-						onCancel(e) {
-							reject(new Error('用户取消下载，请自行更新，然后配置浏览器路径'));
+						onCancel() {
+							reject(new Error('用户取消下载，请自行在软件设置中配置可用的浏览器路径后重试。'));
 						},
 						async onOk() {
-							const existsSync = await remote.fs.call('existsSync', dest);
-							if (existsSync) {
-								resolve(true);
-								return;
-							}
-
-							step.description += '\n正在下载最新版本软件：' + app_download_url;
-							const fp = await download({
-								name: '最新软件下载',
-								dest: dest,
-								url: app_download_url
-							});
-							step.description += '\n下载完成，即将开始安装，请安装后重新初始化设置。';
-							resolve(fp);
+							resolve();
 						}
 					});
 				});
-				if (result === true) {
-					step.error = '检测到最新软件版本已下载，正在打开安装程序中，请安装后重启软件并初始化设置。';
-					console.log(dest);
-					await new Promise<void>((resolve, reject) => {
-						Modal.confirm({
-							title: '警告',
-							content: step.error || '',
-							maskClosable: false,
-							closable: false,
-							cancelText: '取消',
-							okText: '一键安装',
-							onCancel(e) {
-								reject(new Error('你已取消安装，请自行更新软件或者重新初始化。'));
-							},
-							async onOk() {
-								// 关闭软件
-								step.error = '安装程序已启动，请安装后重启软件并初始化设置。';
-								child_process.execFileSync(`"${dest}"`, { shell: true, windowsHide: false });
-							}
-						});
-					});
-				} else if (typeof result === 'string') {
-					step.description += '\n最新版本软件下载完成，即将启动安装程序...';
-					emits('update:visible', false);
-					await new Promise<void>((resolve, reject) => {
-						Modal.info({
-							title: '提示',
-							content: '最新版本软件下载完成，点击确定启动安装程序，请安装后重新初始化设置。',
-							maskClosable: false,
-							closable: false,
-							okText: '确认安装',
-							onOk(e) {
-								// 关闭软件
-								step.error = '安装程序已启动，请安装后重启软件并初始化设置。';
-								child_process.execFileSync(`"${result}"`, { shell: true, windowsHide: false });
-							}
-						});
-					});
-				} else {
-					throw new Error('未知错误，请稍后重试，或者手动更新软件');
+			} catch (error) {
+				step.error = String(error);
+				return;
+			}
+
+			// 监听主进程推送的安装进度，实时刷新步骤描述
+			const progressHandler = (_e: any, progress: { message?: string }) => {
+				if (progress?.message) {
+					step.description = progress.message;
 				}
+			};
+			electron.ipcRenderer.on('builtin-chrome-install-progress', progressHandler);
+			try {
+				step.description = '正在准备下载内置浏览器...';
+				const executablePath: string = await remote.methods.call('installBuiltinChrome');
+				// 安装完成：设置为默认浏览器路径并刷新环境检测
+				store.render.setting.launchOptions.executablePath = executablePath;
+				step.description = `内置浏览器安装完成，已设置为默认浏览器：\n${executablePath}`;
 			} catch (error) {
 				console.error(error);
-				step.error = String(error);
+				step.error =
+					'内置浏览器下载/安装失败：' +
+					String(error) +
+					'\n\n请检查网络连接后重试；若仍无法下载，请前往官方网站找到软件交流群并加入，联系管理员。';
+			} finally {
+				electron.ipcRenderer.removeListener('builtin-chrome-install-progress', progressHandler);
 			}
 		}
 	} as Step,

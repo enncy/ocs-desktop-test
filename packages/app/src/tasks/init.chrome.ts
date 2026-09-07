@@ -13,13 +13,119 @@ import { downloadBuiltinChromeZip } from './chrome.downloader';
 
 const logger = Logger('chrome-init');
 
+/**
+ * 内置浏览器安装进度回调（阶段 + 可选下载进度）。
+ * 供前端 Setup「环境修复」实时展示。
+ */
+export interface BuiltinChromeInstallProgress {
+	phase: 'download' | 'extract' | 'configure';
+	/** 下载阶段才有：源名/进度 */
+	sourceName?: string;
+	sourceIndex?: number;
+	sourceCount?: number;
+	rate?: number;
+	message: string;
+}
+
+/**
+ * 解压内置浏览器压缩包并完成配置（移动、chmod、旧路径迁移）。
+ * initChrome 与远程 installBuiltinChrome 共用此逻辑。
+ *
+ * @returns 安装完成后的浏览器可执行文件路径
+ */
+async function extractAndConfigureBuiltinChrome(
+	chromeZipPath: string,
+	onProgress?: (p: BuiltinChromeInstallProgress) => void
+): Promise<string> {
+	const chromeRuntimePath = path.join(app.getPath('userData'), 'bin', 'chrome');
+	const chromeTempPath = path.join(chromeRuntimePath, 'chrome_temp');
+	const chromeFinalPath = getBuiltinChromeRuntimePath();
+
+	onProgress?.({ phase: 'extract', message: '正在解压内置浏览器...' });
+	fs.rmSync(chromeTempPath, { recursive: true, force: true });
+	if (process.platform === 'darwin') {
+		child_process.execSync('unzip -o "' + chromeZipPath + '" -d "' + chromeTempPath + '"');
+	} else {
+		await unzip(chromeZipPath, chromeTempPath);
+	}
+
+	onProgress?.({ phase: 'extract', message: '正在查找浏览器可执行文件...' });
+	// darwin 下需匹配 .app 目录（而非可执行文件本身），其余平台匹配可执行文件名
+	const searchPattern =
+		process.platform === 'darwin' ? '**/*/' + 'Google Chrome for Testing.app' : '**/*/' + BUILTIN_CHROME_FILENAME;
+	const chrome_file = await glob(searchPattern, {
+		nodir: process.platform !== 'darwin',
+		absolute: true,
+		cwd: chromeTempPath
+	});
+	logger.log('chrome_file', chrome_file);
+	if (!chrome_file || chrome_file.length === 0) {
+		throw new Error('浏览器压缩包数据错误');
+	}
+
+	onProgress?.({ phase: 'extract', message: '正在移动浏览器文件...' });
+	// 已存在旧目录时先移除，避免 rename 冲突
+	fs.rmSync(path.join(chromeRuntimePath, 'chrome'), { recursive: true, force: true });
+	fs.renameSync(path.dirname(chrome_file[0]), path.join(chromeRuntimePath, 'chrome'));
+
+	fs.rmSync(chromeTempPath, { recursive: true, force: true });
+	// 解压完成后删除 userData 下的压缩包副本以释放磁盘（resources 下的只读压缩包不受影响）
+	fs.rmSync(path.join(chromeRuntimePath, 'chrome.zip'), { force: true });
+
+	onProgress?.({ phase: 'configure', message: '正在配置浏览器环境...' });
+	ensureChromeExecutablePermission(chromeFinalPath);
+	migrateLegacyBuiltinBrowserPath(chromeFinalPath);
+
+	return chromeFinalPath;
+}
+
+/**
+ * 下载并安装内置浏览器（供前端「环境修复」复用，不重启应用）。
+ * 本地压缩包优先（resources 旧版完整包 / userData 残留），缺失时多源降级下载 + SHA256 校验。
+ *
+ * @returns 安装完成后的浏览器可执行文件路径
+ */
+export async function installBuiltinChrome(onProgress?: (p: BuiltinChromeInstallProgress) => void): Promise<string> {
+	const chromeFinalPath = getBuiltinChromeRuntimePath();
+	if (fs.existsSync(chromeFinalPath)) {
+		ensureChromeExecutablePermission(chromeFinalPath);
+		migrateLegacyBuiltinBrowserPath(chromeFinalPath);
+		return chromeFinalPath;
+	}
+
+	const chromeResourcePath = getBuiltinChromeRoot();
+	const chromeRuntimePath = path.join(app.getPath('userData'), 'bin', 'chrome');
+	fs.mkdirSync(chromeRuntimePath, { recursive: true });
+
+	let chromeZipPath = [path.join(chromeResourcePath, 'chrome.zip'), path.join(chromeRuntimePath, 'chrome.zip')].find(
+		(p) => fs.existsSync(p)
+	);
+
+	if (!chromeZipPath) {
+		chromeZipPath = path.join(chromeRuntimePath, 'chrome.zip');
+		await downloadBuiltinChromeZip(chromeZipPath, (progress) => {
+			onProgress?.({
+				phase: 'download',
+				sourceName: progress.sourceName,
+				sourceIndex: progress.sourceIndex,
+				sourceCount: progress.sourceCount,
+				rate: progress.rate,
+				message:
+					`正在下载内置浏览器（${progress.sourceName}，` +
+					`第 ${progress.sourceIndex}/${progress.sourceCount} 个下载源）... ${progress.rate}%`
+			});
+		});
+	}
+
+	return extractAndConfigureBuiltinChrome(chromeZipPath, onProgress);
+}
+
 export async function initChrome(_win: BrowserWindow): Promise<boolean> {
 	try {
 		// chrome.zip 来源：打包模式 resources/bin/chrome（旧版完整包），开发模式 项目根 bin/chrome/<platform>-<arch>
 		const chromeResourcePath = getBuiltinChromeRoot();
 		// 解压目标：userData 下可写目录（AppImage 的 /tmp/.mount_* 只读，无法直接写入）
 		const chromeRuntimePath = path.join(app.getPath('userData'), 'bin', 'chrome');
-		const chromeTempPath = path.join(chromeRuntimePath, 'chrome_temp');
 
 		const chromeFinalPath = getBuiltinChromeRuntimePath();
 		if (fs.existsSync(chromeFinalPath)) {
@@ -78,37 +184,10 @@ export async function initChrome(_win: BrowserWindow): Promise<boolean> {
 				setInitStatus({ status: 'loading', message: '内置浏览器下载完成' });
 			}
 
-			setInitStatus({ status: 'loading', message: '正在解压内置浏览器...' });
-			if (process.platform === 'darwin') {
-				child_process.execSync('unzip -o "' + chromeZipPath + '" -d "' + chromeTempPath + '"');
-			} else {
-				await unzip(chromeZipPath, chromeTempPath);
-			}
-			setInitStatus({ status: 'loading', message: '正在查找浏览器可执行文件...' });
-			// darwin 下需匹配 .app 目录（而非可执行文件本身），其余平台匹配可执行文件名
-			const searchPattern =
-				process.platform === 'darwin' ? '**/*/' + 'Google Chrome for Testing.app' : '**/*/' + BUILTIN_CHROME_FILENAME;
-
-			const chrome_file = await glob(searchPattern, {
-				nodir: process.platform !== 'darwin',
-				absolute: true,
-				cwd: chromeTempPath
+			// 解压 + 移动 + 配置（与前端环境修复共用同一套逻辑）
+			await extractAndConfigureBuiltinChrome(chromeZipPath, (p) => {
+				setInitStatus({ status: 'loading', message: p.message });
 			});
-			logger.log('chrome_file', chrome_file);
-			if (!chrome_file || chrome_file.length === 0) {
-				throw new Error('浏览器压缩包数据错误');
-			}
-			setInitStatus({ status: 'loading', message: '正在移动浏览器文件...' });
-			fs.renameSync(path.dirname(chrome_file[0]), path.join(chromeRuntimePath, 'chrome'));
-
-			setInitStatus({ status: 'loading', message: '正在清理临时文件...' });
-			fs.rmSync(chromeTempPath, { recursive: true, force: true });
-			// 解压完成后删除 userData 下的压缩包副本以释放磁盘（resources 下的只读压缩包不受影响）
-			fs.rmSync(path.join(chromeRuntimePath, 'chrome.zip'), { force: true });
-
-			setInitStatus({ status: 'loading', message: '正在配置浏览器环境...' });
-			ensureChromeExecutablePermission(chromeFinalPath);
-			migrateLegacyBuiltinBrowserPath(chromeFinalPath);
 
 			setInitStatus({ status: 'restart', message: '内置浏览器初始化完成，即将重启...' });
 			await sleep(1000);
