@@ -13,6 +13,10 @@
 			"types": "./lib/web.d.ts",
 			"default": "./lib/web.js"
 		},
+		"./node": {
+			"types": "./lib/node.d.ts",
+			"default": "./lib/node.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"scripts": {
@@ -34,10 +38,10 @@
 	},
 	"homepage": "https://github.com/ocsjs/ocs-desktop#readme",
 	"dependencies": {
-		"axios": "^0.25.0"
+		"axios": "catalog:"
 	},
 	"devDependencies": {
 		"@types/node": "^22.0.0",
-		"playwright-core": "^1.52.0"
+		"playwright-core": "catalog:"
 	}
 }

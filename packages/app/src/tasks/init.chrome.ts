@@ -5,7 +5,7 @@ import { sleep, unzip } from '../utils';
 import { Logger } from '../logger';
 import { glob } from 'glob';
 import child_process from 'child_process';
-import { BUILTIN_CHROME_FILENAME, getBuiltinChromeRoot, getBuiltinChromeRuntimePath } from '@ocs-desktop/common';
+import { BUILTIN_CHROME_FILENAME, getBuiltinChromeRoot, getBuiltinChromeRuntimePath } from '@ocs-desktop/common/node';
 import { store } from '../store';
 import { createLoadingWindow } from '../window';
 import { setInitStatus, updateInitLogText } from './init.status';

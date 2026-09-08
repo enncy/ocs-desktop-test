@@ -1,5 +1,3 @@
-export { getValidBrowsers } from './src/utils/valid.browser';
-export { BUILTIN_CHROME_FILENAME, getBuiltinChromeRoot, getBuiltinChromeRuntimePath } from './src/utils/chrome.path';
 export {
 	BUILTIN_CHROME_VERSION,
 	BUILTIN_CHROME_SHA256,

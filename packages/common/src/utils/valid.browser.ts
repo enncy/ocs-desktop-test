@@ -2,8 +2,22 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { ValidBrowser } from '../interface';
 import os from 'os';
-import 'electron';
 import { BUILTIN_CHROME_FILENAME, getBuiltinChromeRuntimePath } from './chrome.path';
+
+/**
+ * 惰性读取 electron 的 process.resourcesPath。
+ * 本模块经 common 的 node-only 入口（./node）仅在主进程使用，但 worker 子进程也会间接
+ * 加载 common，故此处不在模块顶层静态 import electron，避免纯 Node 子进程崩溃。
+ * 非 Electron 环境（如 worker 误调用）回退 undefined，由调用方过滤。
+ */
+function getResourcesPath(): string | undefined {
+	try {
+		// eslint-disable-next-line @typescript-eslint/no-var-requires
+		return (require('electron') as typeof import('electron')).app ? process.resourcesPath : undefined;
+	} catch {
+		return undefined;
+	}
+}
 
 // 获取可用浏览器路径
 export function getValidBrowsers(): ValidBrowser[] {
@@ -45,15 +59,17 @@ export function getValidBrowsers(): ValidBrowser[] {
  * 实际运行时副本位于 userData）；回退到历史 resourcesPath 布局以兼容旧版本解压位置。
  */
 function resolveBuiltinBrowserPath() {
+	const resourcesPath = getResourcesPath();
 	return [
 		getBuiltinChromeRuntimePath(),
-		join(process.resourcesPath, 'bin', 'chrome', 'chrome', BUILTIN_CHROME_FILENAME)
+		...(resourcesPath ? [join(resourcesPath, 'bin', 'chrome', 'chrome', BUILTIN_CHROME_FILENAME)] : [])
 	].find((p) => existsSync(p));
 }
 
 function resolveBrowserPath(commonPath: string) {
+	const resourcesPath = getResourcesPath();
 	return [
-		join(process.resourcesPath, commonPath),
+		...(resourcesPath ? [join(resourcesPath, commonPath)] : []),
 		...(process.platform === 'win32'
 			? [
 					// @ts-ignore
