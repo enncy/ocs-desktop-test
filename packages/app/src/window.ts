@@ -90,8 +90,10 @@ export function createLoadingWindow(): BrowserWindow {
 	//   打包时由 vite 复制到 packages/app/public/；故两模式下分别从对应位置以 file:// 加载，
 	//   不依赖 vite dev server，且打包不会被 vite 覆盖（源文件受 web 项目管理）。
 	const port = (store.store.server?.port as number | undefined) || 15319;
+	// 渲染产物经 electron-vite 输出到 out/renderer（含 publicDir 拷贝的 loading.html）；
+	// dev 模式直接读 web 源文件（vite publicDir），不依赖 dev server。
 	const loadingHtmlPath = app.isPackaged
-		? path.join(app.getAppPath(), 'public', 'loading.html')
+		? path.join(app.getAppPath(), 'out', 'renderer', 'loading.html')
 		: path.join(app.getAppPath(), '..', 'web', 'public', 'loading.html');
 	win.loadURL(url.pathToFileURL(loadingHtmlPath).href + `?port=${port}`);
 

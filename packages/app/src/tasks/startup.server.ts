@@ -326,8 +326,8 @@ export async function startupServer() {
 		}
 	});
 
-	// 静态资源
-	app.use(express.static(path.join(getProjectPath(), './public')));
+	// 静态资源（渲染产物经 electron-vite 输出到 out/renderer）
+	app.use(express.static(path.join(getProjectPath(), './out/renderer')));
 
 	return new Promise<void>((resolve, reject) => {
 		const server = app.listen(store.store.server.port, () => {

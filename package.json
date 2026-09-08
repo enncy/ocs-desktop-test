@@ -9,15 +9,11 @@
 	],
 	"scripts": {
 		"build": "pnpm typecheck && gulp -f ./scripts/build-app.js",
-		"tsc": "gulp -f ./scripts/tsc.js",
-		"typecheck": "pnpm dev:common && pnpm --filter @ocs-desktop/app exec tsc --noEmit && pnpm --filter @ocs-desktop/web exec vue-tsc --noEmit",
+		"typecheck": "pnpm --filter @ocs-desktop/app exec tsc --noEmit && pnpm --filter @ocs-desktop/web exec vue-tsc --noEmit",
 		"lint": "prettier -c ./.prettierrc.json --check \"**/*.{ts,js,vue,css}\" && eslint ./packages --ext .ts,.tsx,.js,.jsx,.vue",
 		"lint:fix": "prettier -c ./.prettierrc.json --write \"**/*.{ts,js,vue,css}\" && eslint ./packages --ext .ts,.tsx,.js,.jsx,.vue --fix",
 		"prepare": "husky",
-		"dev:common": "pnpm --filter @ocs-desktop/common tsc",
-		"dev:app": "pnpm --filter @ocs-desktop/common tsc && pnpm --filter @ocs-desktop/app dev",
-		"dev:web": "pnpm --filter @ocs-desktop/common tsc && pnpm --filter @ocs-desktop/web dev",
-		"dev": "concurrently --kill-others-on-fail \"pnpm --filter @ocs-desktop/common tsc\" \"pnpm --filter @ocs-desktop/web dev\" \"pnpm --filter @ocs-desktop/app dev\""
+		"dev": "pnpm --filter @ocs-desktop/app dev"
 	},
 	"devDependencies": {
 		"@commitlint/cli": "^19.0.0",

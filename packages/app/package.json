@@ -2,19 +2,12 @@
 	"name": "@ocs-desktop/app",
 	"version": "2.11.1",
 	"description": "desktop for userscript",
-	"main": "./lib/index.js",
-	"types": "./lib/types.d.ts",
-	"exports": {
-		".": {
-			"types": "./lib/types.d.ts",
-			"default": "./lib/index.js"
-		},
-		"./package.json": "./package.json"
-	},
+	"main": "./out/main/index.js",
 	"scripts": {
-		"dev": "tsc && electron .",
-		"pack": "tsc && electron-builder --config ./electron.builder.json --dir --publish never",
-		"dist": "tsc && electron-builder --config ./electron.builder.json --publish never",
+		"dev": "electron-vite dev",
+		"build": "electron-vite build",
+		"pack": "electron-vite build && electron-builder --config ./electron.builder.json --dir --publish never",
+		"dist": "electron-vite build && electron-builder --config ./electron.builder.json --publish never",
 		"proxy": "HTTPS_PROXY=127.0.0.1:7890"
 	},
 	"devDependencies": {
@@ -23,12 +16,12 @@
 		"@types/express": "^4.17.13",
 		"@types/keytar": "^4.4.2",
 		"@types/lodash": "^4.17.16",
-		"@types/minimatch": "^6.0.0",
 		"@types/node-forge": "^1.0.0",
 		"@types/semver": "^7.3.9",
 		"@types/unzipper": "^0.10.9",
 		"electron": "35.0.0",
-		"electron-builder": "^23.1.0"
+		"electron-builder": "^23.1.0",
+		"electron-vite": "^2.3.0"
 	},
 	"dependencies": {
 		"@ocs-desktop/common": "workspace:^0.0.1",

@@ -171,7 +171,7 @@ export class Process extends EventEmitter {
 	 */
 	async init(onConsole?: (data: any) => void) {
 		this.shell = child_process.fork(
-			await remote.path.call('join', await remote.app.call('getAppPath'), './script.js'),
+			await remote.path.call('join', await remote.app.call('getAppPath'), './out/main/script.js'),
 			{
 				stdio: ['ipc'],
 				env: process.env

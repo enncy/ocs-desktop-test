@@ -1,3 +1,8 @@
+/**
+ * @deprecated 渲染进程构建已迁移至 electron-vite（见 packages/app/electron.vite.config.ts）。
+ * 本文件仅保留作为配置参照，web 的 dev/build 统一经 app 包的 electron-vite 驱动，
+ * 不再单独执行 vite。后续确认无依赖后可删除。
+ */
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { visualizer } from 'rollup-plugin-visualizer';

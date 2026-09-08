@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import path from 'path';
 import { remoteRegister } from './src/tasks/remote.register';
 import { initStore } from './src/tasks/init.store';
 import { autoLaunch } from './src/tasks/auto.launch';
@@ -80,11 +81,11 @@ function bootstrap() {
 				task('注册app事件监听器', () => globalListenerRegister(window));
 				task('初始化系统托盘', () => createTray(window));
 
-				if (app.isPackaged) {
-					await window.loadFile('./public/index.html');
-				} else {
-					await window.loadURL('http://localhost:3000');
+				if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
+					await window.loadURL(process.env.ELECTRON_RENDERER_URL);
 					window.webContents.openDevTools();
+				} else {
+					await window.loadFile(path.join(app.getAppPath(), 'out/renderer/index.html'));
 				}
 
 				// 加载完成显示，解决一系列的显示/黑屏问题

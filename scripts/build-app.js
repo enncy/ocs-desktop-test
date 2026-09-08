@@ -5,10 +5,7 @@ const { execOut } = require('./utils');
 const { readFileSync } = require('fs');
 const { version } = JSON.parse(readFileSync('../packages/app/package.json').toString());
 
-function buildWeb() {
-	return execOut('pnpm build', { cwd: '../packages/web' });
-}
-
+// electron-vite 一次构建 main + renderer（含 worker 双入口），随后 electron-builder 打包
 function buildApp() {
 	return execOut('pnpm dist', { cwd: '../packages/app' });
 }
@@ -31,4 +28,4 @@ function packResource() {
 }
 
 // 精简版构建：安装包不再内置浏览器压缩包，首次启动时由 init.chrome.ts 从远程下载源拉取
-exports.default = series(cleanOutput, buildWeb, buildApp, packResource);
+exports.default = series(cleanOutput, buildApp, packResource);
