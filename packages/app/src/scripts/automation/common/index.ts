@@ -1,4 +1,4 @@
-import { AutomationScript } from '../../script';
+import { AutomationScript } from '@ocs-desktop/common';
 
 export const NewPageScript = new AutomationScript(
 	{

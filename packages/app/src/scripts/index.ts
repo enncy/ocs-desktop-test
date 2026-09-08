@@ -4,7 +4,7 @@ import { ICVELoginScript } from './automation/wk/icve';
 import { ZJYLoginScript } from './automation/wk/zjy';
 import { ICourseLoginScript } from './automation/wk/icourse';
 import { NewPageScript } from './automation/common';
-import type { AutomationScript } from './script';
+import type { AutomationScript } from '@ocs-desktop/common';
 
 export const AutomationScripts: AutomationScript<any, any>[] = [
 	CXLoginScript,

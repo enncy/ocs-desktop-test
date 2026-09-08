@@ -4,6 +4,13 @@
 	"description": "desktop for userscript",
 	"main": "./lib/index.js",
 	"types": "./lib/types.d.ts",
+	"exports": {
+		".": {
+			"types": "./lib/types.d.ts",
+			"default": "./lib/index.js"
+		},
+		"./package.json": "./package.json"
+	},
 	"scripts": {
 		"dev": "tsc && electron .",
 		"pack": "tsc && electron-builder --config ./electron.builder.json --dir --publish never",

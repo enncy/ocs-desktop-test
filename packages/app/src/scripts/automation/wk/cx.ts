@@ -1,6 +1,6 @@
 import type { Page } from 'playwright-core';
 import { breakSliderVerify, breakVerifyCode, ensureWideViewport, getBase64, slowType } from '../../utils';
-import { AutomationScript } from '../../script';
+import { AutomationScript } from '@ocs-desktop/common';
 
 export const CXLoginScript = new AutomationScript(
 	{

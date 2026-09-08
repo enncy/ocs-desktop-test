@@ -6,7 +6,7 @@ import { remote } from './remote';
 import { notify } from './notify';
 import { electron } from './node';
 import MarkdownText from '../components/MarkdownText.vue';
-import { OCSApi } from '@ocs-desktop/common/src/api';
+import { OCSApi } from '@ocs-desktop/common/web';
 import axios from 'axios';
 import { Infos } from '@ocs-desktop/common';
 

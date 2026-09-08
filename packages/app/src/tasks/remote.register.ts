@@ -14,14 +14,11 @@ import { exportExcel } from '../utils/index';
 import { readdir, stat } from 'fs/promises';
 import { updateApp } from './updater';
 import { AutomationScripts } from '../scripts';
-import { AutomationScript } from '../scripts/script';
 import { getBrowserMajorVersion, getExtensionPaths } from '../utils/browser';
 import { installBuiltinChrome } from './init.chrome';
-import { AppStore } from '../../types';
+import type { AppStore, RawAutomationScript, RemoteMethods } from '@ocs-desktop/common';
 import { encryptRenderString, decryptRenderString } from '../crypto';
 import { hideToTray, showMainWindow, quitApp, cancelQuit, destroyTray } from '../tray';
-
-export type RawAutomationScript = Pick<AutomationScript, 'configs' | 'name'>;
 
 /**
  * 将错误序列化为可跨 IPC 传输的普通对象。
@@ -100,8 +97,8 @@ function registerRemoteEvent(name: string, target: any) {
 
 let win: BrowserWindow | undefined;
 
-/** 需远程共享的方法 */
-const methods = {
+/** 需远程共享的方法（类型契约见 @ocs-desktop/common contract.ts） */
+const methods: RemoteMethods = {
 	autoLaunch,
 	get: (url: string, config?: AxiosRequestConfig<any> | undefined) => axios.get(url, config).then((res) => res.data),
 	getWithStatus: (url: string, config?: AxiosRequestConfig<any> | undefined) =>
@@ -253,8 +250,6 @@ const methods = {
 		);
 	}
 };
-
-export type RemoteMethods = typeof methods;
 
 /**
  * 初始化远程通信

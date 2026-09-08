@@ -1,5 +1,5 @@
 // @ts-check
-import { LoggerCore } from './logger.core';
+import { LoggerCore } from '@ocs-desktop/common';
 import { app } from 'electron';
 
 export function Logger(...name: any[]) {

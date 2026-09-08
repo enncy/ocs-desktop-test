@@ -1,7 +1,7 @@
 import { Page } from 'playwright-core';
 import axios from 'axios';
 import { ensureWideViewport, getBase64, slowType } from '../../utils';
-import { AutomationScript } from '../../script';
+import { AutomationScript } from '@ocs-desktop/common';
 
 /**
  * 拼图图形在 jigsaw img 内的左边距（自然像素）。

@@ -1,11 +1,12 @@
 import { app } from 'electron';
 import path from 'path';
 import Store from 'electron-store';
+import type { AppStore } from '@ocs-desktop/common';
 import { getDecryptedRenderData } from './crypto';
 
 // IO操作只能在 app.getPath('userData') 下进行，否则会有权限问题。
 
-export const OriginalAppStore = {
+export const OriginalAppStore: AppStore = {
 	name: app.getName(),
 	version: app.getVersion(),
 	/** 路径数据 */

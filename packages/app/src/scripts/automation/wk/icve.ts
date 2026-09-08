@@ -1,6 +1,6 @@
 import { Page } from 'playwright-core';
 import axios from 'axios';
-import { AutomationScript } from '../../script';
+import { AutomationScript } from '@ocs-desktop/common';
 import { ensureWideViewport, getBase64 } from '../../utils';
 
 /** 智慧职教 SSO 登录地址 */

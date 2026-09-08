@@ -1,13 +1,13 @@
 import { BrowserWindow, App, Dialog, WebContents } from 'electron';
 import { notify } from './notify';
-import type { RemoteMethods, LoggerCore } from '@ocs-desktop/app';
+import type { RemoteMethods, LoggerCore } from '@ocs-desktop/common/web';
 import type fs from 'fs';
 import type os from 'os';
 import type path from 'path';
 import type crypto from 'crypto';
 import type Store from 'electron-store';
 import { electron } from './node';
-import type { OCSApi } from '@ocs-desktop/common';
+import type { OCSApi } from '@ocs-desktop/common/web';
 const { ipcRenderer } = electron;
 
 /** 远程异步调用默认超时时间（ms），主进程未回复时拒绝并清理监听，避免 Promise 永久 pending */

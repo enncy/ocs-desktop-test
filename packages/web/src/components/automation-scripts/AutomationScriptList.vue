@@ -107,7 +107,7 @@
 <script setup lang="ts">
 import { reactive } from 'vue';
 import { RawAutomationScript } from './index';
-import type { Config } from '@ocs-desktop/app/src/scripts/interface';
+import type { Config } from '@ocs-desktop/common/web';
 import { iconUrl } from '../../utils';
 import Icon from '../Icon.vue';
 

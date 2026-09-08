@@ -111,7 +111,7 @@ import { Modal, TableColumnData } from '@arco-design/web-vue';
 import uniqueId from 'lodash/uniqueId';
 import { store } from '../../store';
 import Icon from '../Icon.vue';
-import type { Config } from '@ocs-desktop/app/src/scripts/interface';
+import type { Config } from '@ocs-desktop/common/web';
 import { remote } from '../../utils/remote';
 import xlsx from 'xlsx';
 

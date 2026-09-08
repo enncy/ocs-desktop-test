@@ -1,11 +1,10 @@
 import { Instance as Chalk } from 'chalk';
-import { LoggerCore } from '../logger.core';
+import { LoggerCore } from '@ocs-desktop/common';
 import path, { basename } from 'path';
 import fs from 'fs';
 import { chromium, BrowserContext, Page, LaunchOptions, Response, Request, CDPSession } from 'playwright-core';
-import { AppStore } from '../../types';
+import type { AppStore, Config, ScriptWorker as ScriptWorkerContract } from '@ocs-desktop/common';
 import { AutomationScripts, LegacyScriptMappings } from '../scripts/index';
-import { Config } from '../scripts/interface';
 import _get from 'lodash/get';
 import child_process from 'child_process';
 import { getBrowserMajorVersion, getExtensionPaths } from '../utils/browser';
@@ -32,8 +31,8 @@ interface Langs {
 	error_when_extension_not_found?: string;
 }
 
-/** 脚本工作线程 */
-export class ScriptWorker {
+/** 脚本工作线程（类型契约见 @ocs-desktop/common contract.ts） */
+export class ScriptWorker implements ScriptWorkerContract {
 	uid: string = '';
 	browser?: BrowserContext;
 	logger?: LoggerCore;

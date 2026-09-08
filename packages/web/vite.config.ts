@@ -25,11 +25,14 @@ export default defineConfig({
 	},
 	base: '',
 	resolve: {
-		alias: {
-			'@': path.resolve(__dirname, './src'),
-			root: path.resolve(__dirname),
-			app: path.resolve(__dirname, './app')
-		}
+		alias: [
+			// monorepo 源码别名：直接编译 common 的 web 安全入口源码，
+			// 避免引用 common/lib（CJS 产物）导致的浏览器兼容问题，同时保证类型与代码实时一致
+			{ find: '@ocs-desktop/common/web', replacement: path.resolve(__dirname, '../common/web.ts') },
+			{ find: '@', replacement: path.resolve(__dirname, './src') },
+			{ find: 'root', replacement: path.resolve(__dirname) },
+			{ find: 'app', replacement: path.resolve(__dirname, './app') }
+		]
 	},
 	plugins: [commonjs({ filter: (id) => (id.includes('xlsx') ? undefined : false) }), vue(), visualizer()]
 });

@@ -191,8 +191,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref, reactive } from 'vue';
-import { OCSApi } from '@ocs-desktop/common/src/api';
-import { BookmarkResource } from '../../../common/src/api';
+import { OCSApi, BookmarkResource } from '@ocs-desktop/common/web';
 import { iconUrl } from '../utils/index';
 
 type BookMark = BookmarkResource;

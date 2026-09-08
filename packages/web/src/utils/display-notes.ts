@@ -1,5 +1,5 @@
 import { RawAutomationScript } from '../components/automation-scripts';
-import type { Config } from '@ocs-desktop/app/src/scripts/interface';
+import type { Config } from '@ocs-desktop/common/web';
 
 /** 由自动化程序信息构建的默认备注（备注为空时使用） */
 export interface AutomationNotesResult {

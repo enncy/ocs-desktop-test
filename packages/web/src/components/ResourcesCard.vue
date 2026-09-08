@@ -262,7 +262,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated, onBeforeUnmount, watch } from 'vue';
-import { ResourceFile } from '@ocs-desktop/common/src/api';
+import { ResourceFile } from '@ocs-desktop/common/web';
 import { resourceLoader } from '../utils/resources.loader';
 import Icon from './Icon.vue';
 import UsageAlertCollapse from './UsageAlertCollapse.vue';

@@ -1,5 +1,5 @@
 import { reactive, ref } from 'vue';
-import { ResourceFile, ResourceGroup } from '@ocs-desktop/common/src/api';
+import { ResourceFile, ResourceGroup } from '@ocs-desktop/common/web';
 import { resourceLoader } from '../utils/resources.loader';
 import { getRemoteInfos } from '../utils';
 import { Message } from '@arco-design/web-vue';

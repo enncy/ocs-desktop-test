@@ -1,6 +1,6 @@
 import { Frame, Page } from 'playwright-core';
 import axios from 'axios';
-import { AutomationScript } from '../../script';
+import { AutomationScript } from '@ocs-desktop/common';
 import { ensureWideViewport, getBase64 } from '../../utils';
 
 /** 中国大学MOOC 首页 */
