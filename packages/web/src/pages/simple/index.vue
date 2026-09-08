@@ -72,65 +72,14 @@
 										:class="cardClass(browser)"
 										@click="selectBrowser(browser)"
 									>
-										<!-- 截图封面区域（运行中推流 或 浏览器关闭后保留预览图时独占整个卡片） -->
-										<div
+										<!-- 截图封面区域（运行中推流 或 浏览器关闭后保留预览图时独占整个卡片），复用组件 -->
+										<BrowserPreview
 											v-if="showCover(browser.uid)"
-											class="card-screenshot"
-										>
-											<img
-												v-if="getCoverUrl(browser.uid)"
-												:src="getCoverUrl(browser.uid)"
-												alt="浏览器预览"
-												class="screenshot-img"
-											/>
-											<div
-												v-else
-												class="screenshot-placeholder"
-											>
-												<Icon type="hourglass_top" /> 等待截图...
-											</div>
-											<!-- 中心查看大图按钮 -->
-											<div
-												v-if="getCoverUrl(browser.uid)"
-												class="card-screenshot-view"
-												@click.stop="openPreview(browser)"
-											>
-												<Icon
-													type="visibility"
-													class="view-icon"
-												/>
-												<span class="view-text">点击查看</span>
-											</div>
-											<!-- 标题浮于截图上方 -->
-											<div class="card-screenshot-overlay">
-												<div class="card-name-text card-name-white">
-													<Icon type="web">
-														{{ browser.name }}
-													</Icon>
-												</div>
-												<div class="overlay-actions">
-													<BrowserOperators
-														:browser="browser"
-														icon-class="fs-5"
-													/>
-													<!-- 关闭"关闭后的预览图"：恢复正常显示（提示或者备注和标签） -->
-													<a-tooltip
-														v-if="showClosedPreview(browser.uid)"
-														content="关闭预览图"
-													>
-														<a-button
-															type="text"
-															size="mini"
-															@click.stop="dismissClosedPreview(browser.uid)"
-														>
-															<template #icon>
-																<Icon type="close" />
-															</template>
-														</a-button>
-													</a-tooltip>
-												</div>
-											</div>
-										</div>
+											:browser="browser"
+											:dismissed="dismissedClosedPreviews"
+											show-overlay
+											@dismiss="dismissClosedPreview"
+										/>
 
 										<template #extra>
 											<div
@@ -250,37 +199,6 @@
 				</div>
 			</div>
 		</div>
-		<!-- 截图大图预览弹窗 -->
-		<a-modal
-			v-model:visible="previewVisible"
-			:footer="false"
-			width="auto"
-			:mask-closable="true"
-			unmount-on-close
-			:fullscreen="true"
-		>
-			<template #title>
-				<div class="preview-title">
-					<span class="d-flex align-items-center gap-2">
-						<Icon type="web" /> {{ previewBrowserName }} - {{ previewIsLive ? '预览中' : '上一次关闭前截图' }}
-					</span>
-					<BrowserOperators
-						v-if="previewBrowser"
-						:browser="previewBrowser"
-						tooltip-position="bottom"
-						icon-class="fs-5"
-						class="me-3"
-						:actions="['front']"
-					/>
-				</div>
-			</template>
-			<img
-				v-if="getCoverUrl(previewUid)"
-				:src="getCoverUrl(previewUid)"
-				alt="浏览器预览"
-				class="screenshot-preview-img"
-			/>
-		</a-modal>
 	</CommonEditActionDropdown>
 </template>
 
@@ -303,6 +221,7 @@ import BeginnerGuide from '../../components/BeginnerGuide.vue';
 import UserScriptListPage from '../../components/UserScriptListPage.vue';
 import EnvironmentAlert from '../../components/EnvironmentAlert.vue';
 import NotificationBanner from '../../components/NotificationBanner.vue';
+import BrowserPreview from '../../components/browsers/BrowserPreview.vue';
 import { getDisplayNotes } from '../../utils/display-notes';
 
 const state = reactive({
@@ -319,28 +238,13 @@ function getBrowserInstance(uid: string): Browser | undefined {
 	return Browser.from(uid);
 }
 
-/** 获取浏览器运行进程（仅仍在运行时返回，否则 undefined） */
-function getProcess(uid: string): Process | undefined {
-	return Process.fromRunning(uid);
-}
-
 /** 浏览器是否已启动（仍在运行且状态为 launched） */
 function isLaunched(uid: string): boolean {
 	return Process.fromRunning(uid)?.status === 'launched';
 }
 
-/** 是否显示截图预览（已启动且用户开启了截图预览） */
-function showScreenshot(uid: string): boolean {
-	return isLaunched(uid) && store.render.setting.browser.screenshotPreview;
-}
-
 /** 用户手动关闭"关闭后预览图"的记录（uid -> 被关闭时的预览图 URL，新一轮启动+关闭产生新帧后重新展示） */
 const dismissedClosedPreviews = reactive(new Map<string, string>());
-
-/** 浏览器关闭后保留的预览图 URL */
-function getClosedPreviewUrl(uid: string): string | undefined {
-	return closedPreviews.get(uid);
-}
 
 /**
  * 是否显示"浏览器关闭后的预览图"：
@@ -349,7 +253,7 @@ function getClosedPreviewUrl(uid: string): string | undefined {
  */
 function showClosedPreview(uid: string): boolean {
 	if (!store.render.setting.browser.screenshotPreview) return false;
-	if (getProcess(uid)) return false;
+	if (Process.fromRunning(uid)) return false;
 	const url = closedPreviews.get(uid);
 	if (!url) return false;
 	return dismissedClosedPreviews.get(uid) !== url;
@@ -365,12 +269,8 @@ function dismissClosedPreview(uid: string) {
 
 /** 是否显示截图封面（运行中推流 或 浏览器关闭后保留的预览图） */
 function showCover(uid: string): boolean {
-	return showScreenshot(uid) || showClosedPreview(uid);
-}
-
-/** 封面图 URL：运行中取实时帧，关闭后取保留的最后一帧 */
-function getCoverUrl(uid: string): string | undefined {
-	return getProcess(uid)?.frameUrl || getClosedPreviewUrl(uid);
+	const live = isLaunched(uid) && store.render.setting.browser.screenshotPreview;
+	return live || showClosedPreview(uid);
 }
 
 /** 计算浏览器卡片的 class */
@@ -390,17 +290,6 @@ function handleAddBrowser() {
 	newBrowserOrInit();
 }
 
-/** 截图大图预览弹窗状态 */
-const previewVisible = ref(false);
-const previewUid = ref('');
-const previewBrowserName = ref('');
-
-/** 当前预览的浏览器对象（用于弹窗内操作按钮） */
-const previewBrowser = computed(() => allBrowsers.value.find((b) => b.uid === previewUid.value));
-
-/** 预览弹窗展示的帧是否为实时推流（浏览器运行中），否则为关闭前保留的截图 */
-const previewIsLive = computed(() => Process.isRunning(previewUid.value));
-
 /** 卡片网格最大宽度：3/4 列时加宽，避免卡片被挤得太小 */
 const cardGridMaxWidth = computed(() => {
 	const cols = store.render.setting.simpleCardColumns;
@@ -408,15 +297,6 @@ const cardGridMaxWidth = computed(() => {
 	if (cols === 3) return '1200px';
 	return '800px';
 });
-
-/** 打开截图大图预览（运行中实时帧 或 关闭后保留的预览图） */
-function openPreview(browser: BrowserOptions) {
-	if (getCoverUrl(browser.uid)) {
-		previewUid.value = browser.uid;
-		previewBrowserName.value = browser.name;
-		previewVisible.value = true;
-	}
-}
 
 /** 重命名临时值 */
 const renameValue = ref('');
@@ -581,103 +461,6 @@ onMounted(() => {
 	}
 }
 
-.card-screenshot {
-	position: relative;
-	overflow: hidden;
-	background-color: var(--theme-card-bg);
-	// 固定宽高比，不会超出界面
-	aspect-ratio: 16 / 9;
-
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.screenshot-img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-}
-
-.card-screenshot-overlay {
-	position: absolute;
-	top: 0;
-	left: 0;
-	right: 0;
-	padding: 8px 12px;
-	// 底层浅白色，防止与截图颜色重合
-	background: rgba(255, 255, 255, 0.591);
-	color: #1d2129;
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-
-	.overlay-actions {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		flex-shrink: 0;
-	}
-
-	:deep(.arco-btn-text) {
-		color: rgba(29, 33, 41, 0.75);
-
-		&:hover {
-			color: #1d2129;
-		}
-	}
-}
-
-.screenshot-placeholder {
-	color: var(--theme-text-color-secondary);
-	font-size: 12px;
-}
-
-/* 中心查看大图按钮：hover 截图区域时显示，图标文案蓝色、背景透明 */
-.card-screenshot-view {
-	position: absolute;
-	top: 50%;
-	left: 50%;
-	transform: translate(-50%, -50%);
-	z-index: 2;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	gap: 6px;
-	padding: 14px 22px;
-	border-radius: var(--border-radius-medium);
-	background-color: transparent;
-	color: var(--theme-primary-color);
-	cursor: pointer;
-	opacity: 0;
-	pointer-events: none;
-	transition: opacity 0.2s ease, transform 0.2s ease;
-	user-select: none;
-	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
-
-	.view-icon {
-		font-size: 30px;
-		line-height: 1;
-	}
-
-	.view-text {
-		font-size: 12px;
-		line-height: 1;
-		letter-spacing: 0.5px;
-	}
-
-	&:hover {
-		transform: translate(-50%, -50%) scale(1.05);
-	}
-}
-
-/* 鼠标移入截图区域时显示查看按钮 */
-.card-screenshot:hover .card-screenshot-view {
-	opacity: 1;
-	pointer-events: auto;
-}
-
 .add-card {
 	display: flex;
 	flex-direction: column;
@@ -695,22 +478,6 @@ onMounted(() => {
 	.add-icon {
 		font-size: 32px;
 		margin-bottom: 8px;
-	}
-}
-
-/** 暗色主题适配：截图浮层为半透明覆盖层，需单独处理（其余由主题变量自动适配） */
-body[arco-theme='dark'] & {
-	.card-screenshot-overlay {
-		background: rgba(40, 40, 42, 0.72);
-		color: #ffffff71;
-
-		:deep(.arco-btn-text) {
-			color: rgba(255, 255, 255, 0.75);
-
-			&:hover {
-				color: #ffffffd9;
-			}
-		}
 	}
 }
 
@@ -742,23 +509,5 @@ body[arco-theme='dark'] & {
 ::deep(.arco-card-meta-content) {
 	flex: 1;
 	min-width: 0;
-}
-
-/* 弹窗标题：浏览器名 + 操作按钮 */
-.preview-title {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: 12px;
-	width: 100%;
-}
-
-/* 截图大图预览弹窗 */
-.screenshot-preview-img {
-	display: block;
-	width: 100%;
-	max-height: 80vh;
-	object-fit: contain;
-	background-color: #000;
 }
 </style>

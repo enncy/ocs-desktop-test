@@ -115,36 +115,11 @@
 							</a-row>
 						</div>
 
-						<!-- 截图区域 -->
-						<a-tooltip
-							content="点击置顶浏览器"
-							position="bl"
-						>
-							<div
-								class="browser-video"
-								:style="{ aspectRatio: '16 / 9' }"
-								@click="openBrowser(pro.uid)"
-							>
-								<img
-									v-if="store.render.setting.browser.screenshotPreview && pro.frameUrl"
-									:src="pro.frameUrl"
-									alt="浏览器预览"
-									class="screenshot-img"
-								/>
-								<div
-									v-else
-									class="screenshot-placeholder"
-								>
-									<template v-if="!store.render.setting.browser.screenshotPreview">
-										<Icon type="image_not_supported" /> 截图预览未开启
-									</template>
-									<template v-else-if="pro.status === 'launching'">
-										<Icon type="hourglass_top" /> 等待浏览器启动...
-									</template>
-									<template v-else> <Icon type="hourglass_top" /> 等待截图... </template>
-								</div>
-							</div>
-						</a-tooltip>
+						<!-- 截图区域（与简洁模式对齐复用组件；专业模式仅运行中，无关闭后预览图/覆盖层） -->
+						<BrowserPreview
+							:browser="pro.browser"
+							:dismissed="emptyDismissed"
+						/>
 
 						<!-- 显示浏览器信息 -->
 						<a-row
@@ -194,23 +169,21 @@
 
 <script setup lang="ts">
 import { computed, watch, onMounted, nextTick } from 'vue';
-import { Process, processes } from '../../utils/process';
+import { processes } from '../../utils/process';
 import { useScreencastVisibility } from '../../composables/useScreencastVisibility';
 import BrowserOperators from '../../components/browsers/BrowserOperators.vue';
 import { t, store } from '../../store';
 import Tags from '../../components/Tags.vue';
 import EntityOperator from '../../components/EntityOperator.vue';
-import Icon from '../../components/Icon.vue';
 import UsageAlertCollapse from '../../components/UsageAlertCollapse.vue';
+import BrowserPreview from '../../components/browsers/BrowserPreview.vue';
 import { getDisplayNotes } from '../../utils/display-notes';
 
 /** 运行中的进程（启动中 + 已启动） */
 const runningProcesses = computed(() => processes.filter((p) => p.status === 'launched' || p.status === 'launching'));
 
-/** 点击截图区域置顶浏览器 */
-function openBrowser(uid: string) {
-	Process.from(uid)?.bringToFront();
-}
+/** 专业模式仅展示运行中浏览器，无"关闭后预览图"，dismiss 记录恒为空 */
+const emptyDismissed = new Map<string, string>();
 
 /** 卡片可见性驱动 Page.startScreencast 启停（仅可见卡片推流） */
 const { refresh: refreshScreencast } = useScreencastVisibility({
@@ -244,30 +217,6 @@ onMounted(() => {
 	&:hover {
 		box-shadow: 0px 0px 4px -1px var(--theme-primary-color);
 	}
-}
-
-.browser-video {
-	position: relative;
-	overflow: hidden;
-	cursor: pointer;
-	border-radius: 4px;
-	background-color: #1d1d1f;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.screenshot-img {
-	width: 100%;
-	height: 100%;
-	object-fit: cover;
-	display: block;
-}
-
-.screenshot-placeholder {
-	color: rgba(255, 255, 255, 0.7);
-	font-size: 12px;
-	text-align: center;
 }
 
 .browser-title {
