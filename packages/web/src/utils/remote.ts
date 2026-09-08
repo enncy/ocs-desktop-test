@@ -1,10 +1,9 @@
 import { BrowserWindow, App, Dialog, WebContents } from 'electron';
 import { notify } from './notify';
-import type { RemoteMethods, LoggerCore, OCSApi } from '@ocs-desktop/common/web';
+import type { RemoteMethods, LoggerCore } from '@ocs-desktop/common/web';
 import type fs from 'fs';
 import type os from 'os';
 import type path from 'path';
-import type crypto from 'crypto';
 import type Store from 'electron-store';
 import { electron } from './node';
 const { ipcRenderer } = electron;
@@ -129,10 +128,6 @@ export const remote = {
 	fs: registerRemote<typeof fs>('fs'),
 	path: registerRemote<typeof path>('path'),
 	os: registerRemote<typeof os>('os'),
-	crypto: registerRemote<typeof crypto>('crypto'),
-
-	// 公共 api
-	OCSApi: registerRemote<typeof OCSApi>('OCSApi'),
 
 	// 注册 window 通信
 	win: registerRemote<BrowserWindow>('win'),

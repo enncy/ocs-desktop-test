@@ -2,14 +2,12 @@ import { ipcMain, app, dialog, BrowserWindow, safeStorage, nativeTheme, net } fr
 import { Logger } from '../logger';
 import { autoLaunch } from './auto.launch';
 import axios, { AxiosRequestConfig } from 'axios';
-import { downloadFile, moveWindowToTop, unzip, zip } from '../utils';
+import { downloadFile, unzip } from '../utils';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import crypto from 'crypto';
-import { OCSApi } from '@ocs-desktop/common';
 import { getValidBrowsers } from '@ocs-desktop/common/node';
-import si from 'systeminformation';
 import { store } from '../store';
 import { exportExcel } from '../utils/index';
 import { readdir, stat } from 'fs/promises';
@@ -19,7 +17,7 @@ import { getBrowserMajorVersion, getExtensionPaths } from '../utils/browser';
 import { installBuiltinChrome } from './init.chrome';
 import type { AppStore, RawAutomationScript, RemoteMethods } from '@ocs-desktop/common';
 import { encryptRenderString, decryptRenderString } from '../crypto';
-import { hideToTray, showMainWindow, quitApp, cancelQuit, destroyTray } from '../tray';
+import { hideToTray, quitApp, cancelQuit, destroyTray } from '../tray';
 
 /**
  * 将错误序列化为可跨 IPC 传输的普通对象。
@@ -104,14 +102,12 @@ const methods: RemoteMethods = {
 	get: (url: string, config?: AxiosRequestConfig<any> | undefined) => axios.get(url, config).then((res) => res.data),
 	getWithStatus: (url: string, config?: AxiosRequestConfig<any> | undefined) =>
 		axios.get(url, { ...config, validateStatus: () => true }).then((res) => ({ status: res.status, data: res.data })),
-	post: (url: string, config?: AxiosRequestConfig<any> | undefined) => axios.post(url, config).then((res) => res.data),
 	download: (channel: string, url: string, dest: string) => {
 		/** 下载文件 */
 		return downloadFile(url, dest, (rate: any, totalLength: any, chunkLength: any) => {
 			win?.webContents?.send('download', channel, rate, totalLength, chunkLength);
 		});
 	},
-	zip: zip,
 	unzip: unzip,
 	getValidBrowsers: getValidBrowsers,
 	getBrowserMajorVersion: getBrowserMajorVersion,
@@ -127,18 +123,14 @@ const methods: RemoteMethods = {
 				win.webContents.send('builtin-chrome-install-progress', progress);
 			}
 		}),
-	systemProcesses: () => si.processes(),
 	exportExcel: exportExcel,
 	statisticFolderSize: statisticFolderSize,
 	getPlatform: () => process.platform,
 	/** 读取系统当前是否为深色主题（nativeTheme.themeSource 默认 system，跟随 OS） */
 	getSystemDark: () => nativeTheme.shouldUseDarkColors,
 	updateApp: updateApp,
-	moveWindowToTop: moveWindowToTop,
 	/** 隐藏主窗口到系统托盘（后台运行） */
 	hideToTray: hideToTray,
-	/** 显示并聚焦主窗口（从托盘恢复） */
-	showMainWindow: showMainWindow,
 	/** 程序化退出（置位 isQuitting 后 app.exit，绕过「隐藏到托盘」） */
 	quitApp: quitApp,
 	/** 取消程序化退出，复位 isQuitting */
@@ -261,8 +253,6 @@ export function remoteRegister(_win: BrowserWindow) {
 	registerRemoteEvent('fs', fs);
 	registerRemoteEvent('os', os);
 	registerRemoteEvent('path', path);
-	registerRemoteEvent('crypto', crypto);
-	registerRemoteEvent('OCSApi', OCSApi);
 
 	registerRemoteEvent('win', _win);
 	registerRemoteEvent('webContents', _win.webContents);

@@ -37,7 +37,6 @@
 		"node-forge": "1.0.0",
 		"playwright-core": "catalog:",
 		"semver": "^7.3.5",
-		"systeminformation": "^5.17.10",
 		"unzipper": "^0.12.3",
 		"xlsx": "catalog:"
 	},

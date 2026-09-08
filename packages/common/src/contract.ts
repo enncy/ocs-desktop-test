@@ -87,25 +87,20 @@ export interface RemoteMethods {
 	autoLaunch: () => void;
 	get: (url: string, config?: AxiosRequestConfig<any> | undefined) => Promise<any>;
 	getWithStatus: (url: string, config?: AxiosRequestConfig<any> | undefined) => Promise<{ status: number; data: any }>;
-	post: (url: string, config?: AxiosRequestConfig<any> | undefined) => Promise<any>;
 	download: (channel: string, url: string, dest: string) => Promise<string>;
-	zip: (input: string, output: string) => Promise<void>;
 	unzip: (input: string, output: string) => Promise<void>;
 	getValidBrowsers: typeof getValidBrowsers;
 	getBrowserMajorVersion: (executablePath: string) => number | undefined;
 	getExtensionPaths: (extensionsFolder: string) => string[];
 	/** 下载并安装内置浏览器，返回安装完成后的可执行文件路径 */
 	installBuiltinChrome: () => Promise<string>;
-	systemProcesses: () => Promise<any>;
 	exportExcel: (excel: { sheetName: string; list: any[] }[], filename: string) => void;
 	statisticFolderSize: (dir: string) => Promise<number>;
 	// eslint-disable-next-line no-undef
 	getPlatform: () => NodeJS.Platform;
 	getSystemDark: () => boolean;
 	updateApp: (newVersion: UpdateInformationResource) => Promise<void>;
-	moveWindowToTop: () => void;
 	hideToTray: () => void;
-	showMainWindow: () => void;
 	quitApp: (code?: number) => void;
 	cancelQuit: () => void;
 	destroyTray: () => void;

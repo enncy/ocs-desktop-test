@@ -143,9 +143,6 @@ importers:
       semver:
         specifier: ^7.3.5
         version: 7.8.1
-      systeminformation:
-        specifier: ^5.17.10
-        version: 5.31.6
       unzipper:
         specifier: ^0.12.3
         version: 0.12.3
