@@ -8,6 +8,7 @@ catalog:
   dayjs: ^1.10.7
   playwright-core: ^1.52.0
   typescript: ^4.5.5
+  vitest: ^3.0.0
   xlsx: ^0.17.5
 
 onlyBuiltDependencies:

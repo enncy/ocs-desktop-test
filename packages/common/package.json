@@ -21,7 +21,8 @@
 	},
 	"scripts": {
 		"tsc": "tsc",
-		"build": "tsc"
+		"build": "tsc",
+		"test": "vitest run"
 	},
 	"repository": {
 		"type": "git",
@@ -42,6 +43,7 @@
 	},
 	"devDependencies": {
 		"@types/node": "^22.0.0",
-		"playwright-core": "catalog:"
+		"playwright-core": "catalog:",
+		"vitest": "catalog:"
 	}
 }

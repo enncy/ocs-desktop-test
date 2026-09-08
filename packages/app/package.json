@@ -8,6 +8,7 @@
 		"build": "electron-vite build",
 		"pack": "electron-vite build && electron-builder --config ./electron.builder.json --dir --publish never",
 		"dist": "electron-vite build && electron-builder --config ./electron.builder.json --publish never",
+		"test": "vitest run",
 		"proxy": "HTTPS_PROXY=127.0.0.1:7890"
 	},
 	"devDependencies": {
@@ -21,7 +22,8 @@
 		"@types/unzipper": "^0.10.9",
 		"electron": "35.0.0",
 		"electron-builder": "^23.1.0",
-		"electron-vite": "^2.3.0"
+		"electron-vite": "^2.3.0",
+		"vitest": "catalog:"
 	},
 	"dependencies": {
 		"@ocs-desktop/common": "workspace:^0.0.1",

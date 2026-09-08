@@ -35,7 +35,7 @@ jobs:
             ${{ runner.os }}-pnpm-
 
       - name: Build common package
-        run: pnpm dev:common
+        run: pnpm --filter @ocs-desktop/common build
 
       - name: Run lint
         run: pnpm lint
@@ -65,7 +65,10 @@ jobs:
             ${{ runner.os }}-pnpm-
 
       - name: Build common package
-        run: pnpm dev:common
+        run: pnpm --filter @ocs-desktop/common build
 
       - name: Type check
         run: pnpm typecheck
+
+      - name: Run tests
+        run: pnpm test
