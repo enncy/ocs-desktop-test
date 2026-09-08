@@ -68,4 +68,4 @@ jobs:
         run: pnpm dev:common
 
       - name: Type check
-        run: pnpm tsc
+        run: pnpm typecheck

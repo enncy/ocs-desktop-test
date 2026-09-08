@@ -86,10 +86,7 @@ export interface DownloadUserscriptResult {
 export interface RemoteMethods {
 	autoLaunch: () => void;
 	get: (url: string, config?: AxiosRequestConfig<any> | undefined) => Promise<any>;
-	getWithStatus: (
-		url: string,
-		config?: AxiosRequestConfig<any> | undefined
-	) => Promise<{ status: number; data: any }>;
+	getWithStatus: (url: string, config?: AxiosRequestConfig<any> | undefined) => Promise<{ status: number; data: any }>;
 	post: (url: string, config?: AxiosRequestConfig<any> | undefined) => Promise<any>;
 	download: (channel: string, url: string, dest: string) => Promise<string>;
 	zip: (input: string, output: string) => Promise<void>;

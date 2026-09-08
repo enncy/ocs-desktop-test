@@ -17,8 +17,11 @@ export default defineConfig({
 				}
 			}
 		},
-		/** 是否压缩代码， 这里写 false，不然打包后类名会发生变化 */
-		minify: false
+		/** 压缩代码但保留类名/函数名（automation 脚本依赖原始类名注册，不能被 mangling） */
+		minify: 'esbuild',
+		esbuild: {
+			keepNames: true
+		}
 	},
 	server: {
 		open: false
