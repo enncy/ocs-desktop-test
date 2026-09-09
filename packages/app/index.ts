@@ -81,6 +81,11 @@ function bootstrap() {
 				task('注册app事件监听器', () => globalListenerRegister(window));
 				task('初始化系统托盘', () => createTray(window));
 
+				// 渲染进程启动时会同步调用 decryptRenderString/saveStore 等加密 IPC，
+				// 必须先确保 AES 密钥就绪（initAesKey 并发幂等，此处等待并行的初始化任务完成），
+				// 否则解密失败会导致渲染端把密文当数据再次加密写回（重复加密），进而引发响应式失效。
+				await initAesKey();
+
 				if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL) {
 					await window.loadURL(process.env.ELECTRON_RENDERER_URL);
 					window.webContents.openDevTools();

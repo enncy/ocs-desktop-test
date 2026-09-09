@@ -207,17 +207,27 @@ if (typeof _store.render === 'string') {
 		// @ts-ignore
 		const renderStr = _store.render as string;
 		const data = JSON.parse(remote.methods.callSync('decryptRenderString' as any, renderStr));
-		// 迁移：旧版 screenshotQuality 语义为帧率，拆分为 screenshotFramerate(帧率) + screenshotQuality(画质)
-		const _oldBrowser = data?.setting?.browser;
-		if (_oldBrowser && !('screenshotFramerate' in _oldBrowser) && 'screenshotQuality' in _oldBrowser) {
-			_oldBrowser.screenshotFramerate = _oldBrowser.screenshotQuality;
-			_oldBrowser.screenshotQuality = 'medium';
+		if (data && typeof data === 'object' && !Array.isArray(data)) {
+			// 迁移：旧版 screenshotQuality 语义为帧率，拆分为 screenshotFramerate(帧率) + screenshotQuality(画质)
+			const _oldBrowser = data?.setting?.browser;
+			if (_oldBrowser && !('screenshotFramerate' in _oldBrowser) && 'screenshotQuality' in _oldBrowser) {
+				_oldBrowser.screenshotFramerate = _oldBrowser.screenshotQuality;
+				_oldBrowser.screenshotQuality = 'medium';
+			}
+			// 解密后的 render 是历史持久化对象，可能缺少后续版本新增的字段，
+			// 再次与默认值合并以补齐（如 state.guide），避免渲染端读取 undefined。
+			Reflect.set(_store, 'render', defaultsDeep(data, DEFAULT_RENDER));
+		} else {
+			// 解密结果不是对象（历史重复加密等数据损坏场景，主进程已尝试逐层恢复）。
+			// 字符串会让 defaultsDeep 产出装箱 String，Vue 对其响应式追踪失效（界面点击无反应），
+			// 因此必须回退为全新默认对象，保证 render 永远是普通对象。
+			console.error('渲染进程数据损坏（解密结果非对象），已重置为默认设置');
+			Reflect.set(_store, 'render', defaultsDeep({}, DEFAULT_RENDER));
 		}
-		// 解密后的 render 是历史持久化对象，可能缺少后续版本新增的字段，
-		// 再次与默认值合并以补齐（如 state.guide），避免渲染端读取 undefined。
-		Reflect.set(_store, 'render', defaultsDeep(data, DEFAULT_RENDER));
 	} catch (e) {
+		// 解密失败同样必须回退为默认对象，绝不能让 render 残留为字符串
 		console.error('数据解密失败：' + e);
+		Reflect.set(_store, 'render', defaultsDeep({}, DEFAULT_RENDER));
 	}
 }
 

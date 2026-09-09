@@ -11,9 +11,11 @@ const ACCOUNT_NAME = 'aes-key';
 
 // --- 状态 ---
 let cachedAesKey: Buffer | null = null;
+/** 初始化 Promise 缓存：保证并发调用（bootstrap 并行任务 / 渲染进程加载前兜底）只执行一次 */
+let initAesKeyPromise: Promise<void> | null = null;
 
 /**
- * 异步初始化加密模块
+ * 异步初始化加密模块（并发幂等）
  *
  * 两种加密方案：
  * 1. keytar + AES：密钥存入 OS 密钥链，用 AES-256-GCM 加解密数据（优先）
@@ -21,28 +23,33 @@ let cachedAesKey: Buffer | null = null;
  *
  * ⚠️ 必须在 initStore() 之前调用
  */
-export async function initAesKey(): Promise<void> {
-	if (cachedAesKey) return;
+export function initAesKey(): Promise<void> {
+	if (!initAesKeyPromise) {
+		initAesKeyPromise = (async () => {
+			if (cachedAesKey) return;
 
-	try {
-		// ── keytar 方案 ──
+			try {
+				// ── keytar 方案 ──
 
-		// 从密钥链读取已有密钥
-		const hex = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
-		if (hex) {
-			cachedAesKey = Buffer.from(hex, 'hex');
-			logger.info('从密钥链加载 AES 密钥');
-			return;
-		}
+				// 从密钥链读取已有密钥
+				const hex = await keytar.getPassword(SERVICE_NAME, ACCOUNT_NAME);
+				if (hex) {
+					cachedAesKey = Buffer.from(hex, 'hex');
+					logger.info('从密钥链加载 AES 密钥');
+					return;
+				}
 
-		// 密钥链中没有，生成新密钥并存入
-		cachedAesKey = crypto.randomBytes(32);
-		await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, cachedAesKey.toString('hex'));
-		logger.info('生成新 AES 密钥并存入密钥链');
-	} catch (e) {
-		// keytar 不可用时 cachedAesKey 保持 null，所有加解密走 safeStorage
-		logger.warn('keytar 初始化失败，使用 safeStorage 方案', e);
+				// 密钥链中没有，生成新密钥并存入
+				cachedAesKey = crypto.randomBytes(32);
+				await keytar.setPassword(SERVICE_NAME, ACCOUNT_NAME, cachedAesKey.toString('hex'));
+				logger.info('生成新 AES 密钥并存入密钥链');
+			} catch (e) {
+				// keytar 不可用时 cachedAesKey 保持 null，所有加解密走 safeStorage
+				logger.warn('keytar 初始化失败，使用 safeStorage 方案', e);
+			}
+		})();
 	}
+	return initAesKeyPromise;
 }
 
 /**
@@ -126,16 +133,37 @@ export function encryptRenderString(plaintext: string): string {
 }
 
 /**
- * 解密渲染进程数据（自适应新旧格式）
+ * 解密渲染进程数据（自适应新旧格式，并自动修复「重复加密」的历史损坏数据）
  * - 含冒号 → AES-256-GCM 格式（keytar 方案）
  * - 纯 base64 → safeStorage 格式（旧数据）
+ *
+ * 历史 bug：启动竞态导致解密失败时渲染端把密文字符串当数据再次加密写回（双重加密），
+ * 解密一层后 JSON.parse 得到字符串而非对象。此处逐层解密，直到还原出对象 JSON 文本。
  */
 export function decryptRenderString(encrypted: string): string {
-	if (encrypted.includes(':')) {
-		return decryptAes(encrypted);
+	let current = encrypted;
+	// 最多解 5 层，防止异常数据死循环
+	for (let layer = 1; layer <= 5; layer++) {
+		const decrypted = current.includes(':')
+			? decryptAes(current)
+			: safeStorage.decryptString(Buffer.from(current, 'base64'));
+		try {
+			const parsed = JSON.parse(decrypted);
+			if (typeof parsed === 'string') {
+				// 解密结果仍是密文字符串（被重复加密），继续向下解
+				logger.warn(`检测到渲染进程数据被重复加密（第 ${layer} 层），正在逐层恢复`);
+				current = parsed;
+				continue;
+			}
+			// 正常的对象 JSON 文本
+			return decrypted;
+		} catch {
+			// 非 JSON 内容，按原样返回保持兼容
+			return decrypted;
+		}
 	}
-	// safeStorage 格式
-	return safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
+	logger.error('渲染进程数据加密层数过多，无法恢复，按空数据处理');
+	return '{}';
 }
 
 /**

@@ -156,8 +156,16 @@ const methods: RemoteMethods = {
 	saveStore: (plainStoreJson: string, shouldEncrypt: boolean): void => {
 		const storeData: AppStore = JSON.parse(plainStoreJson);
 		if (shouldEncrypt && safeStorage.isEncryptionAvailable()) {
-			// @ts-ignore
-			storeData.render = encryptRenderString(JSON.stringify(storeData.render));
+			if (typeof storeData.render === 'string') {
+				// render 应为对象；字符串说明渲染端数据已损坏（如历史解密竞态残留的密文）。
+				// 绝不能再加密写回（会产生重复加密导致解密后是字符串而非对象），保留磁盘原数据。
+				Logger('remote').error('saveStore 收到字符串形态的 render，已跳过该字段写入以避免重复加密');
+				// @ts-ignore
+				storeData.render = store.store.render;
+			} else {
+				// @ts-ignore
+				storeData.render = encryptRenderString(JSON.stringify(storeData.render));
+			}
 		}
 		store.store = storeData;
 	},
