@@ -48,7 +48,9 @@ export default defineConfig({
 				output: {
 					manualChunks(id) {
 						if (id.includes('node_modules')) {
-							return id.toString().split('node_modules/')[1].split('/')[0].toString();
+							// 取最后一个 node_modules 后的第一段作为 chunk 名，兼容 pnpm isolated
+							// 布局（.pnpm/pkg@version/node_modules/pkg/... 嵌套路径）
+							return (id.toString().split('node_modules/').pop() || '').split('/')[0];
 						}
 					}
 				}

@@ -9,13 +9,11 @@
 	"asar": false,
 	"compression": "maximum",
 	"copyright": "Copyright © 2021 ${author}",
-	"afterPack": "./scripts/after-pack.js",
 	"files": [
 		"out/**/*",
 		"public/favicon.png",
 		"public/favicon.icns",
 		"public/favicon.ico",
-		"scripts/after-pack.js",
 		"package.json",
 		"node_modules/**/*",
 		"!**/*.map",
@@ -24,6 +22,7 @@
 	"nsis": {
 		"oneClick": true
 	},
+	"electronLanguages": ["en-US", "en-GB", "zh-CN"],
 	"win": {
 		"icon": "public/favicon.png",
 		"artifactName": "ocs-${version}-setup-${os}-${arch}.${ext}",

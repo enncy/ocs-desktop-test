@@ -20,9 +20,13 @@
 		"@types/node-forge": "^1.0.0",
 		"@types/semver": "^7.3.9",
 		"@types/unzipper": "^0.10.9",
-		"electron": "35.0.0",
-		"electron-builder": "^23.1.0",
+		"@vitejs/plugin-vue": "^4.2.3",
+		"electron": "42.11.3",
+		"electron-builder": "^26.15.3",
 		"electron-vite": "^2.3.0",
+		"rollup-plugin-visualizer": "^5.6.0",
+		"vite": "^5.4.0",
+		"vite-plugin-commonjs": "^0.10.4",
 		"vitest": "catalog:"
 	},
 	"dependencies": {

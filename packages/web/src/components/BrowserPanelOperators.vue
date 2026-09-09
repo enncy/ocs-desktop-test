@@ -81,11 +81,10 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, ref } from 'vue';
+import { nextTick, reactive, ref } from 'vue';
 import { Browser } from '../fs/browser';
 import BrowserOperators from './browsers/BrowserOperators.vue';
 import Icon from './Icon.vue';
-import { nextTick } from 'process';
 
 const props = defineProps<{
 	browser: Browser;
