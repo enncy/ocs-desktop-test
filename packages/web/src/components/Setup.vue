@@ -13,14 +13,24 @@
 		<template #title> {{ props.title }} </template>
 		<a-row :gutter="[24, 24]">
 			<a-col v-if="!Environment.infos.value">
-				<template v-if="Environment.loading">
+				<template v-if="Environment.loading.value">
 					<div class="text-center">
 						<a-spin />
 						<div class="mt-2">正在初始化资源，请稍后...</div>
 					</div>
 				</template>
 				<template v-else>
-					<div class="text-center text-danger">未能获取到远程资源信息，请检查网络后重试，或者稍后手动设置。</div>
+					<div class="text-center">
+						<div class="text-danger">未能获取到远程资源信息，请检查网络后重试，或者稍后手动设置。</div>
+						<a-button
+							class="mt-2"
+							type="primary"
+							size="small"
+							@click="initEnvironment"
+						>
+							重试
+						</a-button>
+					</div>
 				</template>
 			</a-col>
 			<a-col
@@ -586,26 +596,29 @@ const emits = defineEmits<{
 	(e: 'update:visible', data: any): void;
 }>();
 
+/** 初始化远程资源并（按需）自动执行初始化流程；资源加载失败时仅展示错误与重试入口 */
+async function initEnvironment() {
+	await Environment.init();
+	prepare();
+	// 远程资源未加载成功时不自动执行，避免后续步骤因缺少资源信息而报错
+	if (props.autoSetup && Environment.infos.value) {
+		setup();
+	}
+}
+
 onMounted(() => {
-	nextTick(async () => {
-		await Environment.init();
-		prepare();
-		if (props.autoSetup) {
-			setup();
-		}
-	});
+	// 弹窗不可见时不执行，避免后台幽灵实例挂起并污染共享步骤状态
+	if (props.visible) {
+		nextTick(initEnvironment);
+	}
 });
 
 watch(
 	() => props.visible,
 	(vis) => {
-		nextTick(async () => {
-			await Environment.init();
-			prepare();
-			if (props.autoSetup) {
-				setup();
-			}
-		});
+		// 仅在打开弹窗时执行，关闭时不应在后台重跑初始化流程
+		if (!vis) return;
+		nextTick(initEnvironment);
 	}
 );
 

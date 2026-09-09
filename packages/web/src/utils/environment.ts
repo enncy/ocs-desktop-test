@@ -21,8 +21,14 @@ export const Environment = {
 	async getRemoteInfos() {
 		if (!this.infos.value) {
 			this.loading.value = true;
-			this.infos.value = await getRemoteInfos();
-			this.loading.value = false;
+			try {
+				this.infos.value = await getRemoteInfos();
+			} catch (err) {
+				// 网络异常时保持 infos 为空，由调用方展示错误与重试入口
+				console.error('获取远程资源信息失败：', err);
+			} finally {
+				this.loading.value = false;
+			}
 		}
 		return this.infos.value;
 	},
@@ -69,7 +75,7 @@ export const Environment = {
 
 	async getExtensions() {
 		const infos = await this.getRemoteInfos();
-		const extensions = (infos.resourceGroups.find((group) => group.name === 'extensions')?.files || []) as Extension[];
+		const extensions = (infos?.resourceGroups.find((group) => group.name === 'extensions')?.files || []) as Extension[];
 		for (const extension of extensions) {
 			extension.installed = await resourceLoader.isZipFileExists('extensions', extension);
 		}
@@ -79,7 +85,7 @@ export const Environment = {
 	async getSupportedExtension() {
 		const infos = await this.getRemoteInfos();
 		// 获取最新的拓展和用户脚本信息
-		const extensions = (infos.resourceGroups.find((group) => group.name === 'extensions')?.files || []) as Extension[];
+		const extensions = (infos?.resourceGroups.find((group) => group.name === 'extensions')?.files || []) as Extension[];
 		for (const extension of extensions) {
 			extension.installed = await resourceLoader.isZipFileExists('extensions', extension);
 		}

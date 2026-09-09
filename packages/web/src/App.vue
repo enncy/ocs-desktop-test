@@ -95,8 +95,9 @@
 				></Setup>
 			</template>
 
-			<!-- 全局：新建浏览器自动初始化 -->
+			<!-- 全局：新建浏览器自动初始化（仅打开时挂载，避免启动即运行初始化流程并永久挂起） -->
 			<Setup
+				v-if="store.render.state.newBrowserSetup"
 				v-model:visible="store.render.state.newBrowserSetup"
 				auto-setup
 				title="新建浏览器"

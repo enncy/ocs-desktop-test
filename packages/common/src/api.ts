@@ -82,7 +82,10 @@ export interface Infos {
 
 export class OCSApi {
 	static async getInfos(): Promise<Infos> {
-		const { data } = await axios.get('https://cdn.ocsjs.com/api/ocs-app-infos.json?t=' + Date.now());
+		const { data } = await axios.get('https://cdn.ocsjs.com/api/ocs-app-infos.json?t=' + Date.now(), {
+			// 必须设置超时：否则网络异常时 Promise 永不 settle，初始化弹窗会一直卡在加载中
+			timeout: 15_000
+		});
 		return data;
 	}
 }
