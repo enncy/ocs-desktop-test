@@ -241,10 +241,6 @@ export class ScriptWorker implements ScriptWorkerContract {
 				},
 
 				automationScripts: this.automationScripts,
-				bookmarksPageUrl:
-					this.store && this.bookmarkPageEnabled
-						? `http://localhost:${this.store?.server.port || 15319}/index.html#/bookmarks?uid=${this.uid}`
-						: undefined,
 				serverPort: this.store?.server.port || 15319,
 				closeableExtensionHomepages: [
 					'docs.scriptcat.org',
@@ -779,6 +775,108 @@ function loggerPrefix() {
 	return `[OCS] ${new Date().toLocaleTimeString()}`;
 }
 
+/** 步骤提示函数：将初始化进度渲染到导航页 */
+type StepTips = (tips: string | string[], opts?: { loading?: boolean; warn?: boolean }) => Promise<void>;
+
+/**
+ * 浏览器增强：注入静音音频保活脚本（防休眠/防冻结），未开启时直接跳过。
+ * 隐身实现：闭包内局部状态，无全局变量、无函数/方法暴露、无原型篡改、无控制台输出，
+ * 页面被 Chrome 判定为"播放音频"，豁免后台加强节流与页面冻结；
+ * AudioContext 实例仅存于闭包，站点 JS 无任何 API 可枚举到。
+ */
+async function injectEnhancementKeepalive(browser: BrowserContext, config?: BrowserConfig) {
+	if (!config?.browser_enhancement) return;
+	await browser.addInitScript(() => {
+		// 仅顶层 frame，避免 iframe 重复创建
+		if (window.top !== window) return;
+		let started = false;
+		const start = () => {
+			if (started) return;
+			started = true;
+			try {
+				const Ctor: typeof AudioContext | undefined = window.AudioContext || (window as any).webkitAudioContext;
+				if (!Ctor) return;
+				const ctx = new Ctor();
+				const osc = ctx.createOscillator();
+				const gain = ctx.createGain();
+				gain.gain.value = 0; // 静音
+				osc.frequency.value = 1;
+				osc.connect(gain);
+				gain.connect(ctx.destination);
+				osc.start();
+				// 若上下文被挂起（autoplay 策略未生效时），首次真实手势时恢复
+				if (ctx.state === 'suspended') {
+					const resume = () => {
+						ctx.resume().catch(() => {});
+					};
+					for (const e of ['click', 'keydown', 'touchstart']) {
+						window.addEventListener(e, resume, { once: true, passive: true, capture: true });
+					}
+				}
+			} catch {
+				// 静默：不向页面暴露任何痕迹
+			}
+		};
+		// --autoplay-policy=no-user-gesture-required 下可立即启动；否则首个真实手势时启动
+		start();
+		if (!started) {
+			for (const e of ['click', 'keydown', 'touchstart']) {
+				window.addEventListener(e, start, { once: true, passive: true, capture: true });
+			}
+		}
+	});
+	// 浏览器日志输出（仅测试观察用，网站无法读取进程日志，不构成探查面）
+	console.log(bgGray(loggerPrefix()), '[enhancement] 静音音频保活脚本已注入（浏览器增强已开启）');
+}
+
+/**
+ * 创建步骤提示函数：将初始化进度渲染到导航页。
+ * 导航页可能位于新标签页扩展的 iframe 中（chrome_url_overrides），
+ * 直接在顶层页执行会命中清空页面的兜底逻辑、破坏扩展页（iframe 被移除），
+ * 因此需要定位到导航页所在的 frame（顶层页或扩展页 iframe）再执行；
+ * 未找到导航页时静默跳过，不再使用 textContent 覆盖页面。
+ */
+function createStepFunction(page: Page, serverPort: number): StepTips {
+	return async (tips, opts) => {
+		const { loading = true, warn = false } = opts || {};
+		const state = { tips: Array.isArray(tips) ? tips : [tips], loading, warn };
+		const navOrigin = `http://localhost:${serverPort}`;
+
+		try {
+			// 定位导航页 frame：顶层页（直接打开导航页）或扩展新标签页内的 iframe
+			const findNavFrame = () => {
+				if (page.url().startsWith(navOrigin)) return page.mainFrame();
+				return page.frames().find((f) => f !== page.mainFrame() && f.url().startsWith(navOrigin));
+			};
+
+			// iframe 为异步加载，轮询等待其出现（超时则跳过提示，不破坏页面）
+			let frame = findNavFrame();
+			const deadline = Date.now() + 15_000;
+			while (!frame && Date.now() < deadline) {
+				await new Promise((r) => setTimeout(r, 300));
+				frame = findNavFrame();
+			}
+			if (!frame) return;
+
+			// 等待导航页脚本就绪（setBookmarkLoadingState 定义后再执行），未就绪则跳过
+			const ready = await frame
+				.waitForFunction(() => typeof (window as any).setBookmarkLoadingState === 'function', undefined, {
+					timeout: 15_000
+				})
+				.then(() => true)
+				.catch(() => false);
+			if (!ready) return;
+
+			await frame.evaluate((s) => {
+				// @ts-ignore OCS官方导航页自带的方法
+				window.setBookmarkLoadingState(s);
+			}, state);
+		} catch {
+			// 导航页不可用（页面关闭/跳转中）时静默跳过
+		}
+	};
+}
+
 /**
  * 运行脚本
  */
@@ -791,7 +889,6 @@ export async function launchBrowser({
 	enabledScriptCount,
 	automationScripts,
 	closeableExtensionHomepages,
-	bookmarksPageUrl,
 	serverPort,
 	authToken,
 	browserInfo,
@@ -809,8 +906,6 @@ export async function launchBrowser({
 	closeableExtensionHomepages: string[];
 	/** 自动化程序 */
 	automationScripts: AS[];
-	/** 初始导航页地址 */
-	bookmarksPageUrl?: string;
 	/** OCS服务器端口 */
 	serverPort: number;
 	/** 软件辅助权限认证 */
@@ -844,78 +939,16 @@ export async function launchBrowser({
 				// 处理浏览器初始
 				handleBrowserInit(browser, { enable_dialog: config?.enable_dialog, userDataDir });
 
-				// 浏览器增强：注入静音音频保活脚本。
-				// 隐身实现：闭包内局部状态，无全局变量、无函数/方法暴露、无原型篡改、无控制台输出，
-				// 页面被 Chrome 判定为"播放音频"，豁免后台加强节流与页面冻结；
-				// AudioContext 实例仅存于闭包，站点 JS 无任何 API 可枚举到。
-				if (config?.browser_enhancement) {
-					await browser.addInitScript(() => {
-						// 仅顶层 frame，避免 iframe 重复创建
-						if (window.top !== window) return;
-						let started = false;
-						const start = () => {
-							if (started) return;
-							started = true;
-							try {
-								const Ctor: typeof AudioContext | undefined = window.AudioContext || (window as any).webkitAudioContext;
-								if (!Ctor) return;
-								const ctx = new Ctor();
-								const osc = ctx.createOscillator();
-								const gain = ctx.createGain();
-								gain.gain.value = 0; // 静音
-								osc.frequency.value = 1;
-								osc.connect(gain);
-								gain.connect(ctx.destination);
-								osc.start();
-								// 若上下文被挂起（autoplay 策略未生效时），首次真实手势时恢复
-								if (ctx.state === 'suspended') {
-									const resume = () => {
-										ctx.resume().catch(() => {});
-									};
-									for (const e of ['click', 'keydown', 'touchstart']) {
-										window.addEventListener(e, resume, { once: true, passive: true, capture: true });
-									}
-								}
-							} catch {
-								// 静默：不向页面暴露任何痕迹
-							}
-						};
-						// --autoplay-policy=no-user-gesture-required 下可立即启动；否则首个真实手势时启动
-						start();
-						if (!started) {
-							for (const e of ['click', 'keydown', 'touchstart']) {
-								window.addEventListener(e, start, { once: true, passive: true, capture: true });
-							}
-						}
-					});
-					// 浏览器日志输出（仅测试观察用，网站无法读取进程日志，不构成探查面）
-					console.log(bgGray(loggerPrefix()), '[enhancement] 静音音频保活脚本已注入（浏览器增强已开启）');
-				}
+				// 浏览器增强：注入静音音频保活脚本（防休眠/防冻结，未开启时内部直接跳过）
+				await injectEnhancementKeepalive(browser, config);
 
 				try {
-					/**
-					 * 显示步骤提示
-					 */
-					const step = async (tips: string | string[], opts?: { loading?: boolean; warn?: boolean }) => {
-						const { loading = true, warn = false } = opts || {};
-						await blankPage.evaluate(
-							(state) => {
-								// @ts-ignore OCS官方导航页自带的方法
-								const setState = window.setBookmarkLoadingState;
-								if (setState) {
-									setState(state);
-								} else {
-									window.document.body.textContent = state.tips.join('\n');
-								}
-							},
-							{ tips: Array.isArray(tips) ? tips : [tips], loading, warn }
-						);
-					};
-
-					const [blankPage] = browser.pages();
-
 					// 加载本地导航页
-					await blankPage.goto(bookmarksPageUrl || 'about:blank');
+					const [blankPage] = browser.pages();
+					await blankPage.goto('chrome://newtab').catch(() => {});
+
+					// 显示步骤提示（渲染到导航页，兼容新标签页扩展 iframe）
+					const step = createStepFunction(blankPage, serverPort);
 
 					// 打开开发者模式（MV3 运行脚本必需）
 					await openExtensionDeveloperMode(browser, executablePath.includes('edge'));
@@ -1101,7 +1134,7 @@ function transformScriptConfigToRaw(configs: AS['configs']) {
 async function setupUserScripts(opts: {
 	browser: BrowserContext;
 	userscripts: string[];
-	step: (tips: string | string[], opts?: { loading?: boolean; warn?: boolean }) => Promise<void>;
+	step: StepTips;
 	enabledScriptCount: number;
 }): Promise<{ warn: string[]; results: InstallResult[] }> {
 	const { userscripts, browser, step, enabledScriptCount } = opts;
@@ -1141,7 +1174,7 @@ async function runAutomationScripts(opts: {
 	browser: BrowserContext;
 	serverPort: number;
 	automationScripts: AS[];
-	step: (tips: string | string[], opts?: { loading?: boolean; warn?: boolean }) => Promise<void>;
+	step: StepTips;
 }) {
 	const { automationScripts, browser, serverPort, step } = opts;
 
