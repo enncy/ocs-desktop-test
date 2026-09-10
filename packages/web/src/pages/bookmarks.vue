@@ -21,25 +21,17 @@
 				</div>
 			</template>
 
-			<!-- 浏览器信息卡片 -->
-			<div class="browser-info-card">
+			<!-- 顶部标题栏（全宽 banner，置顶） -->
+			<div class="title-bar">
+				<h1 class="page-title">
+					<span class="title-gradient">快捷导航页</span>
+					<span class="page-subtitle">快速访问常用学习平台</span>
+				</h1>
+			</div>
+
+			<!-- 浏览器信息（独占一行 banner） -->
+			<div class="browser-banner">
 				<div class="browser-info-header">
-					<div class="browser-icon">
-						<svg
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="1.5"
-						>
-							<circle
-								cx="12"
-								cy="12"
-								r="10"
-							/>
-							<path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-							<path d="M2 12h20" />
-						</svg>
-					</div>
 					<div class="browser-info-content">
 						<div class="browser-name">
 							<span class="label">当前浏览器</span>
@@ -86,101 +78,265 @@
 				</div>
 			</div>
 
-			<!-- 提示信息 -->
-			<div class="tips-section">
+			<!-- 提示信息（a-alert banner） -->
+			<a-alert
+				v-if="!showEmptyResult"
+				class="tips-alert"
+				:type="state.warn ? 'warning' : 'info'"
+				banner
+			>
+				<p>等待初始化后，即可使用安装的浏览器脚本管理拓展，进行脚本的运行。</p>
+				<p>如果您使用的是 "OCS 网课助手"，请打开以下任意一个网课平台即可，会出现脚本悬浮窗，并有对应的使用教程。</p>
+			</a-alert>
+
+			<!-- 主体内容（container 居中） -->
+			<div class="container main-content">
 				<div
-					class="tip-card"
-					:class="{ warn: state.warn }"
+					v-if="visibleTips.length"
+					class="tips-section"
 				>
-					<div class="tip-icon">
+					<div
+						v-for="(tip, index) of visibleTips"
+						:key="index"
+						class="status-card"
+						:class="{ warn: state.warn }"
+					>
+						<div class="status-indicator"></div>
+						<span>当前状态：{{ tip }}</span>
+					</div>
+				</div>
+
+				<!-- 两个功能都未开启时：使用提示内容作为 a-result 结果显示 -->
+				<a-result
+					v-if="showEmptyResult"
+					class="empty-result"
+					status="info"
+					title="标签页搜索引擎、快捷访问等功能未开启"
+				>
+					<template #subtitle>
+						<p>接下来： 等待初始化后，即可使用安装的浏览器脚本管理拓展，进行脚本的运行。</p>
+						<p>如果您使用的是 "OCS 网课助手"，请打开以下任意一个网课平台即可，会出现脚本悬浮窗，并有对应的使用教程。</p>
+					</template>
+				</a-result>
+
+				<!-- 搜索引擎 -->
+				<div
+					v-if="pageSettings.enableSearch"
+					class="search-section"
+				>
+					<div class="engine-switcher">
+						<button
+							v-for="engine of searchEngines"
+							:key="engine.key"
+							class="engine-btn"
+							:class="{ active: currentEngineKey === engine.key }"
+							@click="switchEngine(engine.key)"
+						>
+							<img
+								class="engine-icon"
+								:src="engine.icon"
+								:alt="engine.name"
+							/>
+							{{ engine.name }}
+						</button>
+					</div>
+					<div class="search-input-wrapper">
 						<svg
+							class="search-icon"
 							viewBox="0 0 24 24"
 							fill="none"
 							stroke="currentColor"
 							stroke-width="2"
 						>
 							<circle
-								cx="12"
-								cy="12"
-								r="10"
+								cx="11"
+								cy="11"
+								r="8"
 							/>
-							<path d="M12 16v-4M12 8h.01" />
+							<path d="M21 21l-4.35-4.35" />
 						</svg>
-					</div>
-					<div class="tip-content">
-						<p>进入浏览器并等待初始化后，即可使用安装的浏览器脚本管理拓展，进行脚本的运行。</p>
-						<p>如果您使用的是 "OCS 网课助手"，请打开以下任意一个网课平台即可，会出现脚本悬浮窗，并有对应的使用教程。</p>
-					</div>
-				</div>
+						<input
+							v-model="searchKeyword"
+							class="search-input"
+							type="text"
+							:placeholder="`使用${currentEngine.name}搜索，输入网址可直接访问`"
+							@keyup.enter="doSearch"
+							@focus="showHistory = true"
+							@blur="onSearchBlur"
+							@keydown.escape="showHistory = false"
+						/>
+						<button
+							class="search-btn"
+							@click="doSearch"
+						>
+							搜索
+						</button>
 
-				<div
-					v-for="(tip, index) of state.tips"
-					:key="index"
-					class="status-card"
-					:class="{ warn: state.warn }"
-				>
-					<div class="status-indicator"></div>
-					<span>当前状态：{{ tip }}</span>
-				</div>
-			</div>
-
-			<!-- 页面标题 -->
-			<div class="page-header">
-				<h1 class="page-title">
-					<span class="title-gradient">OCS 导航</span>
-				</h1>
-				<p class="page-subtitle">快速访问常用学习平台</p>
-			</div>
-
-			<!-- 书签分组 -->
-			<div class="bookmarks-grid">
-				<div
-					v-for="(item, groupIndex) of bookmarks"
-					:key="item?.group + groupIndex"
-				>
-					<div
-						v-if="item && item.values && item.values.length > 0"
-						class="bookmark-group"
-						:style="{ '--group-index': groupIndex }"
-					>
-						<div class="group-header">
-							<div class="group-icon">
+						<!-- 搜索历史联想 -->
+						<div
+							v-show="showHistory && suggestions.length"
+							class="search-dropdown"
+						>
+							<div
+								v-for="item of suggestions"
+								:key="item"
+								class="suggestion-item"
+								@mousedown.prevent="selectSuggestion(item)"
+							>
 								<svg
+									class="suggestion-icon"
 									viewBox="0 0 24 24"
 									fill="none"
 									stroke="currentColor"
 									stroke-width="2"
 								>
-									<path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+									<circle
+										cx="12"
+										cy="12"
+										r="10"
+									/>
+									<path d="M12 6v6l4 2" />
 								</svg>
-							</div>
-							<h2 class="group-title">{{ item.group }}</h2>
-							<span class="group-count">{{ item.values.filter(Boolean).length }} 个网站</span>
-						</div>
-						<div class="group-items">
-							<a
-								v-for="(bookmark, idx) of item.values"
-								v-show="bookmark && bookmark.name"
-								:key="idx"
-								:href="bookmark?.url"
-								target="_blank"
-								class="bookmark-item"
-								:style="{ '--item-index': idx }"
-							>
-								<img
-									:data-img-src="bookmark?.icon || ''"
-									class="icon"
-									:src="iconUrl(bookmark?.icon)"
-								/>
-								<span class="bookmark-name">{{ bookmark?.name }}</span>
-								<a-tooltip
-									background-color="rgba(20, 20, 30, 0.95)"
-									:content="bookmark?.description || '暂无描述'"
-									position="top"
+								<span class="suggestion-text">{{ item }}</span>
+								<button
+									class="suggestion-remove"
+									title="删除此记录"
+									@mousedown.prevent.stop="removeHistory(item)"
 								>
-									<div class="bookmark-tooltip-trigger"></div>
+									<svg
+										viewBox="0 0 24 24"
+										fill="none"
+										stroke="currentColor"
+										stroke-width="2"
+									>
+										<path d="M18 6L6 18M6 6l12 12" />
+									</svg>
+								</button>
+							</div>
+							<div
+								class="suggestion-clear"
+								@mousedown.prevent="clearHistory"
+							>
+								<span>清空搜索记录</span>
+								<a-tooltip
+									content="搜索记录仅存储在当前浏览器中，不会上传到服务器，也不会泄露。"
+									position="top"
+									background-color="rgba(20, 20, 30, 0.95)"
+								>
+									<icon-info-circle
+										class="suggestion-info-icon"
+										:size="14"
+										@mousedown.prevent.stop
+									/>
 								</a-tooltip>
-							</a>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- 自定义网站提示小字（无论是否存在自定义网站都显示） -->
+				<div
+					v-if="!showEmptyResult"
+					class="bookmarks-caption"
+				>
+					自定义网站
+				</div>
+
+				<!-- 自定义网站小卡片 + 添加按钮（加载在快捷访问上方，不使用分组卡片布局） -->
+				<div
+					v-if="!showEmptyResult"
+					class="custom-sites"
+				>
+					<a
+						v-for="(site, idx) of pageSettings.customSites"
+						:key="site.url + idx"
+						:href="site.url"
+						target="_blank"
+						class="bookmark-item custom-site-card"
+						:style="{ '--item-index': idx, '--group-index': 0 }"
+					>
+						<img
+							class="icon"
+							:src="customSiteIcon(site.url)"
+						/>
+						<span class="bookmark-name">{{ site.name }}</span>
+						<a-tooltip
+							background-color="rgba(20, 20, 30, 0.95)"
+							:content="site.url"
+							position="top"
+						>
+							<div class="bookmark-tooltip-trigger"></div>
+						</a-tooltip>
+					</a>
+
+					<!-- 添加按钮：不执行添加，仅提示前往软件设置中添加 -->
+					<button
+						class="bookmark-item add-site-btn"
+						title="添加自定义网站"
+						@click="notifyAddSite"
+					>
+						<svg
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+						>
+							<path d="M12 5v14M5 12h14" />
+						</svg>
+					</button>
+				</div>
+
+				<!-- 平台列表提示 -->
+				<div
+					v-if="pageSettings.enableQuickAccess"
+					class="bookmarks-caption"
+				>
+					快捷访问
+				</div>
+
+				<!-- 书签分组 -->
+				<div
+					v-if="pageSettings.enableQuickAccess"
+					class="bookmarks-grid"
+				>
+					<div
+						v-for="(item, groupIndex) of bookmarks"
+						:key="item?.group + groupIndex"
+					>
+						<div
+							v-if="item && item.values && item.values.length > 0"
+							class="bookmark-group"
+							:style="{ '--group-index': groupIndex }"
+						>
+							<div class="group-header">
+								<h2 class="group-title">{{ item.group }}</h2>
+								<span class="group-count">{{ item.values.filter(Boolean).length }} 个网站</span>
+							</div>
+							<div class="group-items">
+								<a
+									v-for="(bookmark, idx) of item.values"
+									v-show="bookmark && bookmark.name"
+									:key="idx"
+									:href="bookmark?.url"
+									target="_blank"
+									class="bookmark-item"
+									:style="{ '--item-index': idx }"
+								>
+									<img
+										:data-img-src="bookmark?.icon || ''"
+										class="icon"
+										:src="iconUrl(bookmark?.icon)"
+									/>
+									<span class="bookmark-name">{{ bookmark?.name }}</span>
+									<a-tooltip
+										background-color="rgba(20, 20, 30, 0.95)"
+										:content="bookmark?.description || '暂无描述'"
+										position="top"
+									>
+										<div class="bookmark-tooltip-trigger"></div>
+									</a-tooltip>
+								</a>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -190,13 +346,143 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive } from 'vue';
+import { onMounted, ref, reactive, computed } from 'vue';
+import { Message, Modal } from '@arco-design/web-vue';
 import { OCSApi, BookmarkResource } from '@ocs-desktop/common/web';
 import { iconUrl } from '../utils/index';
 
 type BookMark = BookmarkResource;
 
 const bookmarks = ref<BookMark[]>([]);
+
+/** 搜索引擎配置，默认百度 */
+const searchEngines = [
+	{
+		key: 'baidu',
+		name: '百度',
+		icon: 'https://www.baidu.com/favicon.ico',
+		search: (q: string) => `https://www.baidu.com/s?wd=${encodeURIComponent(q)}`
+	},
+	{
+		key: 'bing',
+		name: '必应',
+		icon: 'https://www.bing.com/favicon.ico',
+		search: (q: string) => `https://www.bing.com/search?q=${encodeURIComponent(q)}`
+	},
+	{
+		key: 'google',
+		name: '谷歌',
+		icon: 'https://www.google.com/favicon.ico',
+		search: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`
+	}
+] as const;
+
+type EngineKey = (typeof searchEngines)[number]['key'];
+
+const SEARCH_ENGINE_STORAGE_KEY = 'ocs-search-engine';
+
+const savedEngine = localStorage.getItem(SEARCH_ENGINE_STORAGE_KEY);
+const currentEngineKey = ref<EngineKey>(
+	searchEngines.some((e) => e.key === savedEngine) ? (savedEngine as EngineKey) : 'baidu'
+);
+const searchKeyword = ref('');
+
+const currentEngine = computed(() => searchEngines.find((e) => e.key === currentEngineKey.value) || searchEngines[0]);
+
+function switchEngine(key: EngineKey) {
+	currentEngineKey.value = key;
+	localStorage.setItem(SEARCH_ENGINE_STORAGE_KEY, key);
+	if (key === 'google') {
+		Modal.warning({
+			content: '当前网络环境（国内）可能无法使用谷歌搜索，请确保已开启科学上网后再使用。'
+		});
+	}
+}
+
+function doSearch() {
+	const keyword = searchKeyword.value.trim();
+	if (!keyword) return;
+	addSearchHistory(keyword);
+	showHistory.value = false;
+	// 完整网址直接访问
+	if (/^https?:\/\//i.test(keyword)) {
+		window.location.href = keyword;
+		return;
+	}
+	// 搜索防呆：输入类似网址时，确认是打开链接还是执行搜索
+	if (/^([\w-]+\.)+[a-z]{2,}(\/\S*)?$/i.test(keyword)) {
+		Modal.confirm({
+			title: '确认操作',
+			content: `您输入的 "${keyword}" 看起来像网址，是要直接打开链接，还是搜索该内容？`,
+			okText: '打开链接',
+			cancelText: '执行搜索',
+			onOk: () => {
+				window.location.href = `https://${keyword}`;
+			},
+			onCancel: () => {
+				window.location.href = currentEngine.value.search(keyword);
+			}
+		});
+		return;
+	}
+	window.location.href = currentEngine.value.search(keyword);
+}
+
+/** 搜索历史（localStorage 持久化） */
+const SEARCH_HISTORY_STORAGE_KEY = 'ocs-search-history';
+const MAX_HISTORY_COUNT = 10;
+
+function loadSearchHistory(): string[] {
+	try {
+		const raw = localStorage.getItem(SEARCH_HISTORY_STORAGE_KEY);
+		const list = raw ? JSON.parse(raw) : [];
+		return Array.isArray(list) ? list.filter((i) => typeof i === 'string' && i.trim()) : [];
+	} catch {
+		return [];
+	}
+}
+
+const searchHistory = ref<string[]>(loadSearchHistory());
+const showHistory = ref(false);
+
+function saveSearchHistory() {
+	localStorage.setItem(SEARCH_HISTORY_STORAGE_KEY, JSON.stringify(searchHistory.value));
+}
+
+function addSearchHistory(keyword: string) {
+	searchHistory.value = [keyword, ...searchHistory.value.filter((i) => i !== keyword)].slice(0, MAX_HISTORY_COUNT);
+	saveSearchHistory();
+}
+
+function removeHistory(keyword: string) {
+	searchHistory.value = searchHistory.value.filter((i) => i !== keyword);
+	saveSearchHistory();
+}
+
+function clearHistory() {
+	searchHistory.value = [];
+	saveSearchHistory();
+	showHistory.value = false;
+}
+
+/** 根据当前输入联想搜索记录 */
+const suggestions = computed(() => {
+	const kw = searchKeyword.value.trim().toLowerCase();
+	const list = kw ? searchHistory.value.filter((i) => i.toLowerCase().includes(kw)) : searchHistory.value;
+	return list.slice(0, 8);
+});
+
+function selectSuggestion(keyword: string) {
+	searchKeyword.value = keyword;
+	doSearch();
+}
+
+function onSearchBlur() {
+	// 延迟关闭，等待下拉项的 mousedown 先触发
+	setTimeout(() => {
+		showHistory.value = false;
+	}, 150);
+}
 
 /** 从当前 URL 中解析 uid 参数 */
 function getCurrentUid(): string | null {
@@ -215,6 +501,32 @@ const state = reactive({
 	tips: ['']
 });
 
+/** 标签页设置（从本地服务器读取，读取失败时默认全部开启） */
+const pageSettings = reactive({
+	enableSearch: true,
+	enableQuickAccess: true,
+	customSites: [] as { name: string; url: string }[]
+});
+
+/** 两个功能都未开启且无自定义网站时，显示 a-result 结果页 */
+const showEmptyResult = computed(
+	() => !pageSettings.enableSearch && !pageSettings.enableQuickAccess && pageSettings.customSites.length === 0
+);
+
+/** 自定义网站图标（走本地服务器图标代理，带兜底图标） */
+function customSiteIcon(url: string): string {
+	const port = location.port || '15319';
+	return `http://localhost:${port}/icon?url=${encodeURIComponent(url)}`;
+}
+
+/** 添加按钮点击：提示前往软件设置中添加（导航页不执行添加操作） */
+function notifyAddSite() {
+	Message.info('请前往「软件设置 - 浏览器设置 - 标签页自定义网站」中添加网站。');
+}
+
+/** 可见的状态提示：过滤空提示，初始化状态（如"浏览器初始化完成。"）直接隐藏状态条 */
+const visibleTips = computed(() => state.tips.filter((t) => t && t.trim() && !t.includes('初始化')));
+
 // @ts-ignore 暴露方法给 playwright 脚本
 window.setBookmarkLoadingState = (_state) => {
 	Object.assign(state, _state);
@@ -225,7 +537,7 @@ onMounted(async () => {
 	console.log('OCS API infos:', infos);
 	console.log('bookmark data:', infos.bookmark);
 
-	document.title = 'OCS - 导航页';
+	document.title = 'OCS - 快捷导航页';
 
 	// 直接同步填充书签数据
 	for (let i = 0; i < infos.bookmark.length; i++) {
@@ -266,6 +578,20 @@ onMounted(async () => {
 		} catch (e) {
 			console.error('获取浏览器信息失败', e);
 		}
+	}
+
+	// 获取标签页设置（搜索引擎开关、快捷访问开关、自定义网站）
+	try {
+		const port = location.port || '15319';
+		const res = await fetch(`http://localhost:${port}/api/bookmark/page-settings`);
+		const settings = await res.json();
+		if (settings) {
+			pageSettings.enableSearch = settings.enableSearch !== false;
+			pageSettings.enableQuickAccess = settings.enableQuickAccess !== false;
+			pageSettings.customSites = Array.isArray(settings.customSites) ? settings.customSites : [];
+		}
+	} catch (e) {
+		console.error('获取标签页设置失败', e);
 	}
 });
 
@@ -322,7 +648,7 @@ function openInApp() {
 	color: @text-primary;
 	position: relative;
 	overflow-x: hidden;
-	padding: 32px;
+	padding: 0 0 32px 0;
 }
 
 // 动态网格背景
@@ -350,8 +676,36 @@ function openInApp() {
 	position: relative;
 	z-index: 2;
 	width: 100%;
-	max-width: 100%;
-	margin: 0;
+	height: 100%;
+}
+
+// 类似 bootstrap 的 container，按分辨率自动响应式宽度并居中
+.container {
+	width: 100%;
+	margin-left: auto;
+	margin-right: auto;
+	padding-left: 16px;
+	padding-right: 16px;
+
+	@media (min-width: 576px) {
+		max-width: 540px;
+	}
+
+	@media (min-width: 768px) {
+		max-width: 720px;
+	}
+
+	@media (min-width: 992px) {
+		max-width: 960px;
+	}
+
+	@media (min-width: 1200px) {
+		max-width: 1140px;
+	}
+
+	@media (min-width: 1400px) {
+		max-width: 1320px;
+	}
 }
 
 // 加载状态
@@ -384,42 +738,12 @@ function openInApp() {
 	color: @text-secondary;
 }
 
-// 浏览器信息卡片
-.browser-info-card {
-	background: @card-bg;
-	border: 1px solid @card-border;
-	border-radius: 16px;
-	padding: 20px 24px;
-	margin-bottom: 24px;
-	backdrop-filter: blur(20px);
-	transition: all 0.3s ease;
-
-	&:hover {
-		border-color: rgba(255, 255, 255, 0.12);
-		background: rgba(255, 255, 255, 0.05);
-	}
-}
-
+// 浏览器信息（独立 banner 行内）
 .browser-info-header {
 	display: flex;
 	align-items: center;
-	gap: 20px;
+	gap: 16px;
 	flex-wrap: wrap;
-}
-
-.browser-icon {
-	width: 48px;
-	height: 48px;
-	padding: 10px;
-	background: linear-gradient(135deg, @accent-blue, @accent-violet);
-	border-radius: 12px;
-	color: white;
-	flex-shrink: 0;
-
-	svg {
-		width: 100%;
-		height: 100%;
-	}
 }
 
 .browser-info-content {
@@ -441,7 +765,7 @@ function openInApp() {
 	}
 
 	.value {
-		font-size: 18px;
+		font-size: 15px;
 		font-weight: 600;
 		color: @text-primary;
 	}
@@ -503,59 +827,30 @@ function openInApp() {
 	}
 }
 
-// 提示区域
+// 主体内容区域
+.main-content {
+	padding-top: 24px;
+}
+
+// 提示 banner（a-alert，全宽不受 container 限制）
+.tips-alert {
+	width: 100%;
+	margin: 0;
+	border-radius: 0;
+
+	p {
+		margin: 0;
+		font-size: 13px;
+		line-height: 1.7;
+	}
+}
+
+// 状态提示区域
 .tips-section {
 	display: flex;
 	flex-direction: column;
 	gap: 12px;
 	margin-bottom: 32px;
-}
-
-.tip-card {
-	display: flex;
-	gap: 16px;
-	padding: 16px 20px;
-	background: rgba(34, 211, 238, 0.05);
-	border: 1px solid rgba(34, 211, 238, 0.15);
-	border-radius: 12px;
-	transition: all 0.3s ease;
-
-	&.warn {
-		background: rgba(251, 191, 36, 0.05);
-		border-color: rgba(251, 191, 36, 0.2);
-	}
-}
-
-.tip-icon {
-	flex-shrink: 0;
-	width: 24px;
-	height: 24px;
-	color: @accent-cyan;
-	margin-top: 2px;
-
-	.warn & {
-		color: #fbbf24;
-	}
-
-	svg {
-		width: 100%;
-		height: 100%;
-	}
-}
-
-.tip-content {
-	flex: 1;
-	font-size: 13px;
-	color: @text-secondary;
-	line-height: 1.7;
-
-	p {
-		margin: 0 0 8px 0;
-
-		&:last-child {
-			margin-bottom: 0;
-		}
-	}
 }
 
 .status-card {
@@ -600,16 +895,40 @@ function openInApp() {
 	}
 }
 
-// 页面标题
-.page-header {
-	text-align: center;
-	margin-bottom: 40px;
-	padding: 12px 0;
+// 顶部标题栏（全宽 banner，置顶，不受 container 限制）
+.title-bar {
+	position: sticky;
+	top: 0;
+	z-index: 50;
+	width: 100%;
+	margin: 0;
+	border-radius: 0;
+	padding: 12px 24px;
+	background: rgba(10, 10, 18, 0.85);
+	backdrop-filter: blur(20px);
+	border-bottom: 1px solid @card-border;
+	box-sizing: border-box;
 }
 
+// 浏览器信息 banner（独占一行，全宽不受 container 限制）
+.browser-banner {
+	width: 100%;
+	margin: 0;
+	border-radius: 0;
+	padding: 10px 24px;
+	background: rgba(255, 255, 255, 0.02);
+	border-bottom: 1px solid @card-border;
+	box-sizing: border-box;
+}
+
+// 页面标题（小字描述在标题文本右侧）
 .page-title {
-	margin: 0 0 8px 0;
-	font-size: 42px;
+	display: flex;
+	align-items: baseline;
+	gap: 12px;
+	flex-wrap: wrap;
+	margin: 0;
+	font-size: 22px;
 	font-weight: 700;
 	letter-spacing: -1px;
 }
@@ -623,34 +942,315 @@ function openInApp() {
 
 .page-subtitle {
 	margin: 0;
-	font-size: 16px;
+	font-size: 13px;
 	color: @text-muted;
 	font-weight: 400;
 }
 
-// 书签网格
+// 搜索引擎
+.search-section {
+	position: relative;
+	z-index: 10;
+	max-width: 760px;
+	margin: 0 auto 40px auto;
+	animation: fadeInUp 0.6s ease backwards;
+}
+
+// 引擎 tab 左对齐搜索框
+.engine-switcher {
+	display: flex;
+	justify-content: flex-start;
+	gap: 8px;
+	margin-bottom: 14px;
+}
+
+.engine-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 6px 16px;
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid @card-border;
+	border-radius: 20px;
+	color: @text-secondary;
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	font-family: inherit;
+
+	&:hover {
+		border-color: @accent-cyan;
+		color: @accent-cyan;
+	}
+
+	&.active {
+		background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(59, 130, 246, 0.15));
+		border-color: @accent-cyan;
+		color: @accent-cyan;
+		box-shadow: 0 2px 12px rgba(34, 211, 238, 0.15);
+	}
+}
+
+.engine-icon {
+	width: 14px;
+	height: 14px;
+	border-radius: 4px;
+	display: block;
+}
+
+.search-input-wrapper {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 6px 6px 6px 18px;
+	background: @card-bg;
+	border: 1px solid @card-border;
+	border-radius: 14px;
+	backdrop-filter: blur(20px);
+	transition: all 0.3s ease;
+
+	&:focus-within {
+		border-color: @accent-cyan;
+		box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.1);
+	}
+}
+
+.search-icon {
+	width: 18px;
+	height: 18px;
+	color: @text-muted;
+	flex-shrink: 0;
+}
+
+.search-input {
+	flex: 1;
+	min-width: 0;
+	background: transparent;
+	border: none;
+	outline: none;
+	color: @text-primary;
+	font-size: 15px;
+	font-family: inherit;
+	padding: 10px 0;
+
+	&::placeholder {
+		color: @text-muted;
+	}
+}
+
+.search-btn {
+	flex-shrink: 0;
+	padding: 10px 24px;
+	background: linear-gradient(135deg, @accent-blue, @accent-violet);
+	border: none;
+	border-radius: 10px;
+	color: white;
+	font-size: 14px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: all 0.2s ease;
+	font-family: inherit;
+
+	&:hover {
+		transform: translateY(-1px);
+		box-shadow: 0 6px 16px rgba(59, 130, 246, 0.35);
+	}
+
+	&:active {
+		transform: translateY(0);
+	}
+}
+
+// 搜索历史联想下拉
+.search-dropdown {
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 0;
+	right: 0;
+	background: rgba(18, 18, 28, 0.96);
+	border: 1px solid @card-border;
+	border-radius: 12px;
+	backdrop-filter: blur(20px);
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+	overflow: hidden;
+	z-index: 100;
+	animation: fadeIn 0.15s ease;
+}
+
+.suggestion-item {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 10px 16px;
+	cursor: pointer;
+	transition: background 0.15s ease;
+
+	&:hover {
+		background: rgba(255, 255, 255, 0.06);
+
+		.suggestion-remove {
+			opacity: 1;
+		}
+	}
+}
+
+.suggestion-icon {
+	width: 14px;
+	height: 14px;
+	color: @text-muted;
+	flex-shrink: 0;
+}
+
+.suggestion-text {
+	flex: 1;
+	min-width: 0;
+	font-size: 13px;
+	color: @text-primary;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.suggestion-remove {
+	flex-shrink: 0;
+	width: 20px;
+	height: 20px;
+	padding: 3px;
+	background: transparent;
+	border: none;
+	border-radius: 6px;
+	color: @text-muted;
+	cursor: pointer;
+	opacity: 0;
+	transition: all 0.15s ease;
+
+	svg {
+		width: 100%;
+		height: 100%;
+		display: block;
+	}
+
+	&:hover {
+		color: @accent-rose;
+		background: rgba(244, 63, 94, 0.12);
+	}
+}
+
+.suggestion-clear {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+	padding: 8px 16px;
+	font-size: 12px;
+	color: @text-muted;
+	text-align: center;
+	cursor: pointer;
+	border-top: 1px solid @card-border;
+	transition: all 0.15s ease;
+
+	&:hover {
+		color: @accent-rose;
+		background: rgba(255, 255, 255, 0.04);
+	}
+}
+
+.suggestion-info-icon {
+	display: inline-flex;
+	cursor: help;
+	flex-shrink: 0;
+	transition: color 0.15s ease;
+
+	&:hover {
+		color: @accent-cyan;
+	}
+}
+
+// 平台列表提示小字（宽度对齐搜索区域）
+.bookmarks-caption {
+	width: 100%;
+	max-width: 760px;
+	margin: 0 auto 16px auto;
+	font-size: 13px;
+	color: @text-muted;
+	letter-spacing: 1px;
+}
+
+// 书签网格（宽度对齐搜索区域，居中显示）
 .bookmarks-grid {
 	display: flex;
 	flex-direction: column;
 	gap: 32px;
+	width: 100%;
+	max-width: 760px;
+	margin: 0 auto;
 }
 
-// 书签分组
+// 自定义网站小卡片（位于快捷访问上方，直接渲染不使用分组卡片布局）
+.custom-sites {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	width: 100%;
+	max-width: 760px;
+	margin: 0 auto 32px auto;
+}
+
+// 自定义网站小卡片：加深描边，防止与背景颜色重合
+.custom-site-card {
+	border-color: rgba(255, 255, 255, 0.16);
+}
+
+// 添加自定义网站按钮（虚线加号）
+.add-site-btn {
+	justify-content: center;
+	background: transparent;
+	border: 1px dashed rgba(255, 255, 255, 0.2);
+	color: @text-muted;
+	cursor: pointer;
+	font-family: inherit;
+
+	svg {
+		width: 16px;
+		height: 16px;
+		display: block;
+	}
+
+	&:hover {
+		background: rgba(34, 211, 238, 0.06);
+		border-color: @accent-cyan;
+		color: @accent-cyan;
+	}
+}
+
+// 空状态结果页（两个功能都未开启时显示）
+.empty-result {
+	padding: 48px 0;
+
+	p {
+		margin: 0;
+		font-size: 13px;
+		line-height: 1.7;
+	}
+}
+
+// 书签分组卡片
 .bookmark-group {
 	background: @card-bg;
 	border: 1px solid @card-border;
-	border-radius: 20px;
-	padding: 20px 24px;
+	border-radius: 16px;
+	padding: 24px;
 	backdrop-filter: blur(20px);
-	transition: all 0.3s ease;
+	transition: border-color 0.3s ease, box-shadow 0.3s ease;
 	animation: fadeInUp 0.6s ease backwards;
 	animation-delay: calc(var(--group-index) * 0.1s);
 	max-width: 100%;
 
 	&:hover {
-		border-color: rgba(255, 255, 255, 0.12);
-		transform: translateY(-2px);
-		box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+		border-color: rgba(34, 211, 238, 0.25);
+		box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
 	}
 }
 
@@ -669,23 +1269,9 @@ function openInApp() {
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	margin-bottom: 20px;
-	padding-bottom: 16px;
+	margin-bottom: 4px;
+	padding-bottom: 14px;
 	border-bottom: 1px solid @card-border;
-}
-
-.group-icon {
-	width: 28px;
-	height: 28px;
-	padding: 2px;
-	background: linear-gradient(135deg, @accent-rose, @accent-violet);
-	border-radius: 8px;
-	color: white;
-
-	svg {
-		width: 100%;
-		height: 100%;
-	}
 }
 
 .group-title {
@@ -704,23 +1290,24 @@ function openInApp() {
 	border-radius: 20px;
 }
 
-// 书签项
+// 平台小卡片列表
 .group-items {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 12px;
+	gap: 10px;
 	width: 100%;
 }
 
+// 平台小卡片
 .bookmark-item {
 	position: relative;
 	display: inline-flex;
 	align-items: center;
-	gap: 8px;
-	padding: 8px 14px;
+	gap: 10px;
+	padding: 10px 16px;
 	background: rgba(255, 255, 255, 0.04);
 	border: 1px solid @card-border;
-	border-radius: 8px;
+	border-radius: 12px;
 	text-decoration: none;
 	transition: all 0.2s ease;
 	animation: fadeIn 0.4s ease backwards;
@@ -728,9 +1315,10 @@ function openInApp() {
 	flex: 0 0 auto;
 
 	&:hover {
-		background: rgba(255, 255, 255, 0.08);
+		background: rgba(34, 211, 238, 0.08);
 		border-color: @accent-cyan;
 		transform: translateY(-2px);
+		box-shadow: 0 8px 20px rgba(34, 211, 238, 0.12);
 
 		.bookmark-name {
 			color: @accent-cyan;
@@ -774,7 +1362,15 @@ function openInApp() {
 // 响应式设计
 @media (max-width: 768px) {
 	.bookmarks-container {
-		padding: 16px;
+		padding: 0 0 16px 0;
+	}
+
+	.title-bar {
+		padding: 10px 16px;
+	}
+
+	.browser-banner {
+		padding: 10px 16px;
 	}
 
 	.browser-info-header {
@@ -792,7 +1388,29 @@ function openInApp() {
 	}
 
 	.page-title {
-		font-size: 32px;
+		font-size: 20px;
+	}
+
+	.search-section {
+		margin-bottom: 28px;
+	}
+
+	.engine-btn {
+		padding: 5px 14px;
+		font-size: 12px;
+	}
+
+	.search-input-wrapper {
+		padding: 4px 4px 4px 14px;
+	}
+
+	.search-input {
+		font-size: 14px;
+	}
+
+	.search-btn {
+		padding: 9px 18px;
+		font-size: 13px;
 	}
 
 	.bookmark-item {
@@ -831,16 +1449,24 @@ body:not([arco-theme='dark']) & {
 		opacity: 0.02;
 	}
 
-	.browser-info-card,
 	.bookmark-group {
 		background: @light-card;
 		border-color: rgba(0, 0, 0, 0.06);
 	}
 
-	.browser-info-card:hover,
 	.bookmark-group:hover {
 		background: white;
 		border-color: rgba(0, 0, 0, 0.1);
+	}
+
+	.title-bar {
+		background: rgba(248, 250, 252, 0.9);
+		border-bottom-color: rgba(0, 0, 0, 0.06);
+	}
+
+	.browser-banner {
+		background: rgba(255, 255, 255, 0.6);
+		border-bottom-color: rgba(0, 0, 0, 0.06);
 	}
 
 	.browser-name .value,
@@ -854,13 +1480,76 @@ body:not([arco-theme='dark']) & {
 	.page-subtitle,
 	.group-count,
 	.loading-tip,
-	.tip-content {
+	.bookmarks-caption {
 		color: @light-text-secondary;
 	}
 
-	.tip-card {
-		background: rgba(34, 211, 238, 0.08);
-		border-color: rgba(34, 211, 238, 0.2);
+	.engine-btn {
+		background: rgba(0, 0, 0, 0.03);
+		border-color: rgba(0, 0, 0, 0.08);
+		color: @light-text-secondary;
+
+		&:hover {
+			border-color: @accent-blue;
+			color: @accent-blue;
+		}
+
+		&.active {
+			background: rgba(59, 130, 246, 0.08);
+			border-color: @accent-blue;
+			color: @accent-blue;
+			box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
+		}
+	}
+
+	.search-input-wrapper {
+		background: @light-card;
+		border-color: rgba(0, 0, 0, 0.08);
+
+		&:focus-within {
+			border-color: @accent-blue;
+			box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+		}
+	}
+
+	.search-icon {
+		color: @light-text-secondary;
+	}
+
+	.search-input {
+		color: @light-text;
+
+		&::placeholder {
+			color: @light-text-secondary;
+		}
+	}
+
+	.search-dropdown {
+		background: rgba(255, 255, 255, 0.98);
+		border-color: rgba(0, 0, 0, 0.08);
+		box-shadow: 0 16px 40px rgba(0, 0, 0, 0.12);
+	}
+
+	.suggestion-item:hover {
+		background: rgba(0, 0, 0, 0.04);
+	}
+
+	.suggestion-text {
+		color: @light-text;
+	}
+
+	.suggestion-icon,
+	.suggestion-remove {
+		color: @light-text-secondary;
+	}
+
+	.suggestion-clear {
+		color: @light-text-secondary;
+		border-top-color: rgba(0, 0, 0, 0.06);
+
+		&:hover {
+			background: rgba(0, 0, 0, 0.03);
+		}
 	}
 
 	.status-card {
@@ -877,7 +1566,26 @@ body:not([arco-theme='dark']) & {
 		background: rgba(0, 0, 0, 0.02);
 
 		&:hover {
-			background: rgba(0, 0, 0, 0.04);
+			background: rgba(59, 130, 246, 0.06);
+			border-color: @accent-blue;
+			box-shadow: 0 8px 20px rgba(59, 130, 246, 0.1);
+		}
+	}
+
+	.custom-site-card {
+		border-color: rgba(0, 0, 0, 0.12);
+	}
+
+	.add-site-btn {
+		background: transparent;
+		border-color: rgba(0, 0, 0, 0.2);
+		color: @light-text-secondary;
+
+		&:hover {
+			background: rgba(59, 130, 246, 0.06);
+			border-color: @accent-blue;
+			color: @accent-blue;
+			box-shadow: none;
 		}
 	}
 
@@ -889,25 +1597,12 @@ body:not([arco-theme='dark']) & {
 	}
 }
 
+// 平台图标：无圆角、无边框
 .icon {
-	width: 48px;
-	height: 48px;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	border: 1px solid #e1e1e1;
-	border-radius: 100%;
-	cursor: pointer;
-
-	&:hover {
-		border: 1px solid #70d5fd;
-	}
-
-	object,
-	img {
-		width: 24px;
-		height: 24px;
-		display: block;
-	}
+	width: 28px;
+	height: 28px;
+	display: block;
+	object-fit: contain;
+	flex-shrink: 0;
 }
 </style>

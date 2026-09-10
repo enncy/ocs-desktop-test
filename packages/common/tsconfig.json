@@ -10,5 +10,5 @@
 		"forceConsistentCasingInFileNames": true,
 		"declaration": true
 	},
-	"exclude": ["node_modules", "tests", "**/*.test.ts"]
+	"exclude": ["node_modules", "lib", "tests", "**/*.test.ts"]
 }

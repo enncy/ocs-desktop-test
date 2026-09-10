@@ -205,57 +205,6 @@ importers:
         specifier: 'catalog:'
         version: 3.2.7(@types/debug@4.1.13)(@types/node@24.13.3)(jsdom@13.2.0)(less@4.6.4)(terser@5.48.0)
 
-  packages/app/dist/win-unpacked/resources/app:
-    dependencies:
-      '@ocs-desktop/common':
-        specifier: workspace:^0.0.1
-        version: link:../../../../../common
-      adm-zip:
-        specifier: ^0.5.12
-        version: 0.5.17
-      axios:
-        specifier: 'catalog:'
-        version: 0.25.0
-      chalk:
-        specifier: 'catalog:'
-        version: 4.1.0
-      dayjs:
-        specifier: 'catalog:'
-        version: 1.11.20
-      electron-store:
-        specifier: ^8.0.1
-        version: 8.2.0
-      express:
-        specifier: ^4.18.1
-        version: 4.22.2
-      glob:
-        specifier: ^11.0.2
-        version: 11.1.0
-      keytar:
-        specifier: ^7.9.0
-        version: 7.9.0
-      lodash:
-        specifier: ^4.17.21
-        version: 4.18.1
-      node-forge:
-        specifier: 1.0.0
-        version: 1.0.0
-      pkg-up:
-        specifier: 3.1.0
-        version: 3.1.0
-      playwright-core:
-        specifier: 'catalog:'
-        version: 1.60.0
-      semver:
-        specifier: ^7.3.5
-        version: 7.8.1
-      unzipper:
-        specifier: ^0.12.3
-        version: 0.12.3
-      xlsx:
-        specifier: 'catalog:'
-        version: 0.17.5
-
   packages/common:
     dependencies:
       axios:
@@ -350,6 +299,9 @@ importers:
       '@arco-design/web-vue':
         specifier: ^2.42.0
         version: 2.58.0(vue@3.5.34(typescript@4.9.5))
+      '@types/lodash':
+        specifier: ^4.17.16
+        version: 4.17.24
       '@types/markdown-it':
         specifier: ^12.2.3
         version: 12.2.3

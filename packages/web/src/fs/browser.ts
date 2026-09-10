@@ -1,4 +1,5 @@
 import { nextTick } from 'vue';
+import { Message } from '@arco-design/web-vue';
 import { store } from '../store';
 import { Process, processes, clearClosedPreview } from '../utils/process';
 import { resetSearch } from '../utils/entity';
@@ -42,6 +43,14 @@ export class Browser extends Entity implements BrowserOptions {
 
 	/** 启动浏览器 */
 	async launch() {
+		// 浏览器增强开启时限制并发数量：运行中（启动中+已启动）达到上限直接拒绝启动
+		if (store.render.setting.browser.browserEnhancement) {
+			const runningCount = processes.filter((p) => p.status === 'launching' || p.status === 'launched').length;
+			if (runningCount >= 4) {
+				Message.error('浏览器增强已开启：最多同时运行 4 个浏览器，请先关闭其他浏览器，或在设置中关闭浏览器增强功能');
+				return;
+			}
+		}
 		const process = new Process(this, {
 			executablePath: store.render.setting.launchOptions.executablePath,
 			headless: false

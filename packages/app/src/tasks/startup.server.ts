@@ -230,6 +230,17 @@ export async function startupServer() {
 		});
 	});
 
+	/** 获取导航页（标签页）设置：搜索引擎开关、快捷平台访问开关、自定义网站列表 */
+	app.get('/api/bookmark/page-settings', (req, res) => {
+		const render = getDecryptedRenderData(store);
+		const bookmarkPage = render?.setting?.browser?.bookmarkPage;
+		res.json({
+			enableSearch: bookmarkPage?.enableSearch !== false,
+			enableQuickAccess: bookmarkPage?.enableQuickAccess !== false,
+			customSites: Array.isArray(bookmarkPage?.customSites) ? bookmarkPage.customSites : []
+		});
+	});
+
 	/** 获取网站图标（带内存缓存） */
 	app.get('/icon', async (req, res) => {
 		const iconUrl = req.query.url as string;

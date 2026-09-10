@@ -76,6 +76,17 @@ export type WebStore = {
 			screenshotFramerate: 'high' | 'medium' | 'low';
 			/** 预览画质档位：控制分辨率与 jpeg 质量，high / medium / low */
 			screenshotQuality: 'high' | 'medium' | 'low';
+			/** 浏览器增强（防休眠/防冻结）：启动时附加防节流参数并注入静音音频豁免，仅对新启动的浏览器生效 */
+			browserEnhancement: boolean;
+			/** 导航页（标签页）设置 */
+			bookmarkPage: {
+				/** 是否启用标签页搜索引擎功能 */
+				enableSearch: boolean;
+				/** 是否启用标签页快捷平台访问 */
+				enableQuickAccess: boolean;
+				/** 自定义网站列表（加载在快捷访问上方） */
+				customSites: { name: string; url: string }[];
+			};
 		};
 	};
 
@@ -167,7 +178,13 @@ export const DEFAULT_RENDER = {
 			autoInitNewBrowser: true,
 			screenshotPreview: true,
 			screenshotFramerate: 'low' as const,
-			screenshotQuality: 'medium' as const
+			screenshotQuality: 'medium' as const,
+			browserEnhancement: false,
+			bookmarkPage: {
+				enableSearch: true,
+				enableQuickAccess: true,
+				customSites: []
+			}
 		}
 	},
 	langs: {},
