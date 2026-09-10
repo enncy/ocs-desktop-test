@@ -128,6 +128,8 @@ export interface ScriptWorkerBrowserConfig {
 	enable_dialog?: boolean;
 	/** 是否启用浏览器界面预览（Page.startScreencast 推流） */
 	screenshot_preview?: boolean;
+	/** 浏览器增强（防休眠/防冻结）：附加防节流启动参数 + 注入静音音频豁免脚本 */
+	browser_enhancement?: boolean;
 }
 
 export interface ScriptWorkerLangs {
@@ -163,6 +165,22 @@ export interface ScreencastOptions {
 	quality?: number;
 }
 
+/** 可推流页面信息（worker 通过 pages-changed 事件广播给渲染进程） */
+export interface ScreencastPageInfo {
+	url: string;
+	title: string;
+	/** 网站图标 URL（页面未声明 favicon 时回退为 origin/favicon.ico） */
+	icon: string;
+}
+
+/** pages-changed 事件负载 */
+export interface ScreencastPagesChangedPayload {
+	/** 当前全部可推流页面（已排除 chrome:// 等内部页面） */
+	pages: ScreencastPageInfo[];
+	/** 当前推流目标页 URL（无则空串） */
+	current: string;
+}
+
 /**
  * 脚本工作进程（worker）调用契约。
  * 实现见 @ocs-desktop/app src/worker/index.ts（class ScriptWorker implements ScriptWorker）。
@@ -175,6 +193,8 @@ export interface ScriptWorker {
 	startScreencast(opts?: ScreencastOptions): Promise<void>;
 	pauseScreencast(): Promise<void>;
 	stopScreencast(): Promise<void>;
+	/** 切换 screencast 推流目标到指定 URL 的页面（用户在预览卡片上手动选择） */
+	switchScreencastPage(url: string): Promise<void>;
 	kill(): void;
 	debug(...msg: any[]): void;
 	warn(...msg: any[]): void;

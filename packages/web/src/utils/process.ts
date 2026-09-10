@@ -3,7 +3,7 @@ import { remote } from './remote';
 import { t, store } from '../store';
 import { LaunchOptions } from 'playwright-core';
 import { reactive } from 'vue';
-import type { ScriptWorker } from '@ocs-desktop/common/web';
+import type { ScriptWorker, ScreencastPageInfo, ScreencastPagesChangedPayload } from '@ocs-desktop/common/web';
 import { Browser } from '../fs/browser';
 import { Message } from '@arco-design/web-vue';
 import EventEmitter from 'events';
@@ -124,6 +124,10 @@ export class Process extends EventEmitter {
 
 	/** 当前预览帧的 Blob URL（由 worker screencast 推流更新） */
 	frameUrl: string = '';
+	/** 当前浏览器全部可推流页面（worker pages-changed 事件实时更新） */
+	pages: ScreencastPageInfo[] = [];
+	/** 当前推流目标页 URL（worker pages-changed 事件实时更新） */
+	screencastPageUrl: string = '';
 	/** 上一帧 Blob URL，用于更新前 revoke 避免内存泄漏 */
 	private _blobUrl: string = '';
 	/** 最近一帧的 base64（用于关闭时最终落盘） */
@@ -213,6 +217,11 @@ export class Process extends EventEmitter {
 			'screencast-cleared': () => {
 				this.clearFrame();
 			},
+			/** 页面列表变化（worker 实时广播，驱动"切换页面"弹窗） */
+			'pages-changed': (_uid: string, payload: ScreencastPagesChangedPayload) => {
+				this.pages = payload?.pages || [];
+				this.screencastPageUrl = payload?.current || '';
+			},
 			/**
 			 * 浏览器关闭
 			 * 可以由 browser.close() 关闭
@@ -235,6 +244,8 @@ export class Process extends EventEmitter {
 					}
 				}
 				this.clearFrame();
+				this.pages = [];
+				this.screencastPageUrl = '';
 				// 从进程列表中移除
 				Process.remove(this.uid);
 			}
@@ -261,7 +272,8 @@ export class Process extends EventEmitter {
 			},
 			config: {
 				enable_dialog: store.render.setting.browser.enableDialog,
-				screenshot_preview: store.render.setting.browser.screenshotPreview
+				screenshot_preview: store.render.setting.browser.screenshotPreview,
+				browser_enhancement: store.render.setting.browser.browserEnhancement
 			},
 			langs: store.render.langs as any
 		});
@@ -452,6 +464,12 @@ export class Process extends EventEmitter {
 		} else {
 			this.worker?.('pauseScreencast');
 		}
+	}
+
+	/** 切换预览推流到指定 URL 的页面（用户在"切换页面"弹窗中选择） */
+	switchScreencastPage(url: string) {
+		if (this.status !== 'launched') return;
+		this.worker?.('switchScreencastPage', url);
 	}
 
 	/**

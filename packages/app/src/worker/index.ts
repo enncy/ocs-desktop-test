@@ -20,6 +20,8 @@ type BrowserConfig = {
 	enable_dialog?: boolean;
 	/** 是否启用浏览器界面预览（Page.startScreencast 推流） */
 	screenshot_preview?: boolean;
+	/** 浏览器增强（防休眠/防冻结）：附加防节流启动参数 + 注入静音音频豁免脚本 */
+	browser_enhancement?: boolean;
 };
 
 interface Langs {
@@ -59,6 +61,12 @@ export class ScriptWorker implements ScriptWorkerContract {
 	private screencastLoadListeners = new Map<Page, () => void>();
 	/** Screencast 启动中标志，防止并发重入导致 session 泄漏 */
 	private screencastStarting = false;
+	/** 用户手动固定的推流目标页 URL（页面关闭或 URL 变化后自动清除） */
+	private screencastPinnedUrl?: string;
+	/** 页面列表广播防抖定时器 */
+	private pageListBroadcastTimer?: ReturnType<typeof setTimeout>;
+	/** 页面列表跟踪的监听清理函数集合 */
+	private pageListCleanups: (() => void)[] = [];
 	static langs?: Langs;
 	static lang: (key: keyof Langs, def?: string, replace?: Record<string, string>) => string = (key, def, replace) => {
 		const result = _get(ScriptWorker.langs, key, def);
@@ -195,6 +203,9 @@ export class ScriptWorker implements ScriptWorkerContract {
 				onLaunch: (browser) => {
 					this.browser = browser;
 
+					// 页面列表实时跟踪（新页面/关闭/导航时广播 pages-changed 给渲染进程）
+					this.setupPageListTracking(browser);
+
 					/** URL事件解析器 */
 					this.browser?.on('page', (page) => {
 						const match = page.url().match(/ocs-action_(.+)/);
@@ -276,6 +287,7 @@ export class ScriptWorker implements ScriptWorkerContract {
 	async close() {
 		// 仅内部停止推流（detach session），不发 screencast-cleared：
 		// 渲染进程在 browser-closed 时保留最后一帧，用于"浏览器关闭后的预览图"展示
+		this.stopPageListTracking();
 		await this.stopScreencastInternal();
 		await this.browser?.close();
 		this.browser = undefined;
@@ -306,7 +318,113 @@ export class ScriptWorker implements ScriptWorkerContract {
 	private pickScreencastPage(): Page | undefined {
 		const pages = this.browser?.pages();
 		if (!pages || pages.length === 0) return undefined;
+		// 用户手动固定的目标页优先；目标已关闭/URL 已变化则清除固定并回退自动选择
+		if (this.screencastPinnedUrl) {
+			const pinned = pages.find((p) => p.url() === this.screencastPinnedUrl && !p.isClosed());
+			if (pinned && !this.isInternalScreencastPage(pinned)) return pinned;
+			this.screencastPinnedUrl = undefined;
+		}
 		return [...pages].reverse().find((p) => !this.isInternalScreencastPage(p)) || pages.at(-1);
+	}
+
+	/**
+	 * 页面列表实时跟踪：监听新页面创建、页面关闭、页面导航（framenavigated），
+	 * 任一变化后防抖广播 pages-changed 给渲染进程，驱动"切换页面"弹窗的 URL 列表实时更新。
+	 */
+	private setupPageListTracking(browser: BrowserContext) {
+		const trackPage = (page: Page) => {
+			const onChange = () => this.scheduleBroadcastPageList();
+			page.on('close', onChange);
+			page.on('framenavigated', onChange);
+			this.pageListCleanups.push(() => {
+				page.off('close', onChange);
+				page.off('framenavigated', onChange);
+			});
+		};
+
+		for (const page of browser.pages()) {
+			trackPage(page);
+		}
+		const onNewPage = (page: Page) => {
+			trackPage(page);
+			this.scheduleBroadcastPageList();
+		};
+		browser.on('page', onNewPage);
+		this.pageListCleanups.push(() => browser.off('page', onNewPage));
+
+		// 启动后广播一次初始列表
+		this.scheduleBroadcastPageList();
+	}
+
+	/** 防抖广播页面列表（导航/创建/关闭可能在短时间内连续触发） */
+	private scheduleBroadcastPageList() {
+		if (this.pageListBroadcastTimer) clearTimeout(this.pageListBroadcastTimer);
+		this.pageListBroadcastTimer = setTimeout(() => {
+			this.pageListBroadcastTimer = undefined;
+			this.broadcastPageList();
+		}, 300);
+	}
+
+	/** 广播当前全部可推流页面及当前推流目标给渲染进程 */
+	private async broadcastPageList() {
+		if (!this.browser) return;
+		const pages = this.browser.pages().filter((p) => !this.isInternalScreencastPage(p));
+		const infos = await Promise.all(
+			pages.map(async (p) => {
+				// 页面未声明 favicon 时回退为 origin/favicon.ico
+				let icon = await p
+					.evaluate(() => {
+						const link = document.querySelector<HTMLLinkElement>(
+							'link[rel~="icon"], link[rel="shortcut icon"], link[rel="apple-touch-icon"]'
+						);
+						return link?.href || '';
+					})
+					.catch(() => '');
+				if (!icon) {
+					try {
+						icon = new URL(p.url()).origin + '/favicon.ico';
+					} catch {
+						icon = '';
+					}
+				}
+				return {
+					url: p.url(),
+					title: await p.title().catch(() => ''),
+					icon
+				};
+			})
+		);
+		send('pages-changed', this.uid, {
+			pages: infos,
+			current: this.screencastPage && !this.screencastPage.isClosed() ? this.screencastPage.url() : ''
+		});
+	}
+
+	/** 停止页面列表跟踪并清理监听（浏览器关闭时调用） */
+	private stopPageListTracking() {
+		if (this.pageListBroadcastTimer) {
+			clearTimeout(this.pageListBroadcastTimer);
+			this.pageListBroadcastTimer = undefined;
+		}
+		for (const cleanup of this.pageListCleanups) cleanup();
+		this.pageListCleanups = [];
+		this.screencastPinnedUrl = undefined;
+	}
+
+	/**
+	 * 切换 screencast 推流目标到指定 URL 的页面（用户在预览卡片上手动选择）。
+	 * 固定目标后自动重选逻辑（新页面/load 事件）不会覆盖用户选择，
+	 * 直到目标页关闭或导航离开该 URL。
+	 */
+	async switchScreencastPage(url: string) {
+		const page = this.browser?.pages().find((p) => p.url() === url && !p.isClosed());
+		if (!page) return;
+		this.screencastPinnedUrl = url;
+		// 推流激活时立即重建流到目标页；未激活时仅记录固定目标，激活后自动生效
+		if (this.screencastParams) {
+			await this.startScreencast();
+		}
+		this.scheduleBroadcastPageList();
 	}
 
 	/**
@@ -569,6 +687,74 @@ export class ScriptWorker implements ScriptWorkerContract {
 	}
 }
 
+/**
+ * 浏览器增强（防休眠/防冻结）启动参数：
+ * 最小化/后台窗口下仍可长时间运行 JS。开关关闭时不附加任何参数。
+ *
+ * 注意：Chromium CommandLine 对重复开关为"last wins"语义，且 Playwright 1.60 默认
+ * 已带一个 --disable-features 列表，此处必须携带其默认禁用项的并集，
+ * 升级 playwright-core 时需同步核对（lib/coreBundle.js 中 chromiumSwitches 的 disabledFeatures）。
+ * 其余独立开关与 Playwright 默认参数重复但无副作用（重复传入无影响）。
+ */
+function formatBrowserEnhancementArgs(config?: BrowserConfig): string[] {
+	if (!config?.browser_enhancement) return [];
+	return [
+		// 禁用后台页面定时器节流：隐藏页面的 setTimeout/setInterval 不再被对齐到 1 秒/次
+		'--disable-background-timer-throttling',
+		// 禁止渲染进程在后台时被降级（降低进程优先级/调度权重）
+		'--disable-renderer-backgrounding',
+		// 窗口被遮挡或最小化时不将页面视为后台，避免合成/调度被暂停
+		'--disable-backgrounding-occluded-windows',
+		// 禁用 IPC 洪泛保护，避免 worker 高频 CDP 调用（evaluate/推流 ack）被限流
+		'--disable-ipc-flooding-protection',
+		// 允许无用户手势自动播放（静音音频保活的前提，否则 AudioContext 会一直处于 suspended）
+		'--autoplay-policy=no-user-gesture-required',
+		'--disable-features=' +
+			[
+				// ↓ Playwright 1.60 默认禁用项（last-wins 语义下必须保留，否则丢失默认行为）
+				// 禁用 beforeunload 同步检查，避免自动化时页面卸载被阻塞（playwright#14047）
+				'AvoidUnnecessaryBeforeUnloadCheckSync',
+				// 修正节点移除时的边界事件派发跟踪，避免误判（playwright#38568）
+				'BoundaryEventDispatchTracksNodeRemoval',
+				// 关闭浏览器进程时不销毁用户数据目录（持久化上下文必需）
+				'DestroyProfileOnBrowserClose',
+				// 禁用拨号媒体路由提供方，避免投屏相关干扰（playwright#13854）
+				'DialMediaRouteProvider',
+				// 禁用全局媒体控制（工具栏媒体播放控制按钮）
+				'GlobalMediaControls',
+				// 禁用 HTTP 自动升级为 HTTPS，避免自动化导航被意外改写（playwright#27605）
+				'HttpsUpgrades',
+				// 隐藏地址栏 Lens 识图入口（非官方构建中不可用）
+				'LensOverlay',
+				// 禁用媒体路由/投屏功能（playwright#8162）
+				'MediaRouter',
+				// 禁用导航期间的绘制保持，避免旧页面残影（playwright#28023）
+				'PaintHolding',
+				// 禁用第三方存储分区，保持第三方 cookie 传统行为（playwright#32230）
+				'ThirdPartyStoragePartitioning',
+				// 禁用页面翻译弹窗（playwright#16126）
+				'Translate',
+				// 禁用自动提权（chromium issue 435410220）
+				'AutoDeElevate',
+				// 禁用新版 RenderDocument 导航行为，避免跨进程导航异常（playwright#37714）
+				'RenderDocument',
+				// 禁止启动时下载优化提示数据（减少启动网络活动）
+				'OptimizationHints',
+				// 禁用 Edge 强制浏览器登录
+				'msForceBrowserSignIn',
+				// 禁止 macOS 上更新 LaunchServices 首选版本记录
+				'msEdgeUpdateLaunchServicesPreferredVersion',
+				// ↓ 增强新增
+				// 禁用后台加强唤醒节流：页面隐藏 5 分钟后定时器不再被限制为 1 次/分钟（长时挂机关键）
+				'IntensiveWakeUpThrottling',
+				// 禁用后台标签页冻结（Chrome 对长时间不活跃标签的 freeze 机制）
+				'TabFreeze',
+				// 禁用省内存模式（防止不活跃标签被丢弃/杀进程，feature 名随版本可能变化，未知项会被忽略）
+				'MemorySaverMode'
+			].join(',')
+	];
+}
+
 /** 格式化浏览器拓展启动参数 */
 function formatExtensionArguments(extensionPaths: string[]) {
 	const paths = extensionPaths.map((p) => p.replace(/\\/g, '/')).join(',');
@@ -636,12 +822,62 @@ export async function launchBrowser({
 					'--no-first-run',
 					'--no-default-browser-check',
 					'--allow-file-access-from-files',
+					// 浏览器增强（防休眠/防冻结）附加参数，开关关闭时为空数组
+					...formatBrowserEnhancementArgs(config),
 					...args
 				]
 			})
 			.then(async (browser) => {
 				// 处理浏览器初始
 				handleBrowserInit(browser, { enable_dialog: config?.enable_dialog, userDataDir });
+
+				// 浏览器增强：注入静音音频保活脚本。
+				// 隐身实现：闭包内局部状态，无全局变量、无函数/方法暴露、无原型篡改、无控制台输出，
+				// 页面被 Chrome 判定为"播放音频"，豁免后台加强节流与页面冻结；
+				// AudioContext 实例仅存于闭包，站点 JS 无任何 API 可枚举到。
+				if (config?.browser_enhancement) {
+					await browser.addInitScript(() => {
+						// 仅顶层 frame，避免 iframe 重复创建
+						if (window.top !== window) return;
+						let started = false;
+						const start = () => {
+							if (started) return;
+							started = true;
+							try {
+								const Ctor: typeof AudioContext | undefined = window.AudioContext || (window as any).webkitAudioContext;
+								if (!Ctor) return;
+								const ctx = new Ctor();
+								const osc = ctx.createOscillator();
+								const gain = ctx.createGain();
+								gain.gain.value = 0; // 静音
+								osc.frequency.value = 1;
+								osc.connect(gain);
+								gain.connect(ctx.destination);
+								osc.start();
+								// 若上下文被挂起（autoplay 策略未生效时），首次真实手势时恢复
+								if (ctx.state === 'suspended') {
+									const resume = () => {
+										ctx.resume().catch(() => {});
+									};
+									for (const e of ['click', 'keydown', 'touchstart']) {
+										window.addEventListener(e, resume, { once: true, passive: true, capture: true });
+									}
+								}
+							} catch {
+								// 静默：不向页面暴露任何痕迹
+							}
+						};
+						// --autoplay-policy=no-user-gesture-required 下可立即启动；否则首个真实手势时启动
+						start();
+						if (!started) {
+							for (const e of ['click', 'keydown', 'touchstart']) {
+								window.addEventListener(e, start, { once: true, passive: true, capture: true });
+							}
+						}
+					});
+					// 浏览器日志输出（仅测试观察用，网站无法读取进程日志，不构成探查面）
+					console.log(bgGray(loggerPrefix()), '[enhancement] 静音音频保活脚本已注入（浏览器增强已开启）');
+				}
 
 				try {
 					/**

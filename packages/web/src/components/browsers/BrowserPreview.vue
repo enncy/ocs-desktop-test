@@ -18,17 +18,32 @@
 			<template v-else> <Icon type="hourglass_top" /> 等待截图... </template>
 		</div>
 
-		<!-- 中心查看大图按钮：hover 显示 -->
+		<!-- 中心操作按钮组：hover 显示 -->
 		<div
 			v-if="coverUrl"
 			class="card-screenshot-view"
-			@click.stop="previewVisible = true"
 		>
-			<Icon
-				type="visibility"
-				class="view-icon"
-			/>
-			<span class="view-text">点击查看</span>
+			<div
+				class="view-btn"
+				@click.stop="previewVisible = true"
+			>
+				<Icon
+					type="visibility"
+					class="view-icon"
+				/>
+				<span class="view-text">点击查看</span>
+			</div>
+			<div
+				v-if="isLive"
+				class="view-btn"
+				@click.stop="pageSwitchVisible = true"
+			>
+				<Icon
+					type="tab"
+					class="view-icon"
+				/>
+				<span class="view-text">切换页面</span>
+			</div>
 		</div>
 
 		<!-- 覆盖层（标题 + 操作），仅覆盖层模式（showOverlay）使用，如简洁模式 -->
@@ -97,15 +112,55 @@
 			alt="浏览器预览"
 			class="screenshot-preview-img"
 		/>
-	</a-modal>
-</template>
+		</a-modal>
+
+		<!-- 切换页面弹窗：显示当前浏览器全部可推流页面，点击切换推流目标 -->
+		<a-modal
+		v-model:visible="pageSwitchVisible"
+		title="切换页面"
+		:footer="false"
+		width="520px"
+		unmount-on-close
+		>
+		<div class="page-list">
+			<div
+				v-for="page of pageList"
+				:key="page.url"
+				class="page-item"
+				:class="{ active: page.url === process?.screencastPageUrl }"
+				@click="switchPage(page.url)"
+			>
+				<img
+					v-if="page.icon && !failedIcons.has(page.url)"
+					:src="iconUrl(page.icon)"
+					class="page-item-icon"
+					@error="failedIcons.add(page.url)"
+				/>
+				<Icon
+					v-else
+					type="language"
+					class="page-item-icon-default"
+				/>
+				<div class="page-item-text">
+					<div class="page-item-title">{{ page.title || page.url }}</div>
+					<div class="page-item-url">{{ page.url }}</div>
+				</div>
+			</div>
+			<a-empty
+				v-if="pageList.length === 0"
+				description="暂无可切换的页面"
+			/>
+		</div>
+		</a-modal>
+		</template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, reactive } from 'vue';
 import Icon from '../Icon.vue';
 import BrowserOperators from './BrowserOperators.vue';
 import { store } from '../../store';
 import { Process, closedPreviews } from '../../utils/process';
+import { iconUrl } from '../../utils/index';
 import { BrowserOptions } from '../../fs/interface';
 
 const props = withDefaults(
@@ -125,6 +180,9 @@ const emit = defineEmits<{
 
 const previewVisible = ref(false);
 
+/** 切换页面弹窗显隐 */
+const pageSwitchVisible = ref(false);
+
 /** 运行进程（仅仍在运行时返回） */
 const process = computed(() => Process.fromRunning(props.browser.uid));
 
@@ -142,6 +200,18 @@ const coverUrl = computed(() => process.value?.frameUrl || closedPreviews.get(pr
 
 /** 当前展示是否为实时推流（浏览器运行中） */
 const isLive = computed(() => Process.isRunning(props.browser.uid));
+
+/** 当前浏览器全部可推流页面（worker 实时更新） */
+const pageList = computed(() => process.value?.pages || []);
+
+/** 图标加载失败的页面（url 集合），失败后回退为默认地球图标 */
+const failedIcons = reactive(new Set<string>());
+
+/** 切换推流到指定页面并关闭弹窗 */
+function switchPage(url: string) {
+	process.value?.switchScreencastPage(url);
+	pageSwitchVisible.value = false;
+}
 
 /** 关闭"关闭后的预览图"，恢复正常显示 */
 function dismissClosedPreview() {
@@ -215,7 +285,7 @@ function dismissClosedPreview() {
 	text-align: center;
 }
 
-/* 中心查看大图按钮：hover 截图区域时显示，图标文案蓝色、背景透明 */
+/* 中心操作按钮组：hover 截图区域时显示，图标文案蓝色、背景透明 */
 .card-screenshot-view {
 	position: absolute;
 	top: 50%;
@@ -223,20 +293,32 @@ function dismissClosedPreview() {
 	transform: translate(-50%, -50%);
 	z-index: 2;
 	display: flex;
-	flex-direction: column;
 	align-items: center;
 	justify-content: center;
-	gap: 6px;
-	padding: 14px 22px;
-	border-radius: var(--border-radius-medium);
-	background-color: transparent;
-	color: var(--theme-primary-color);
-	cursor: pointer;
+	gap: 12px;
 	opacity: 0;
 	pointer-events: none;
-	transition: opacity 0.2s ease, transform 0.2s ease;
+	transition: opacity 0.2s ease;
 	user-select: none;
-	text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+
+	.view-btn {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		padding: 14px 22px;
+		border-radius: var(--border-radius-medium);
+		background-color: transparent;
+		color: var(--theme-primary-color);
+		cursor: pointer;
+		text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+		transition: transform 0.2s ease;
+
+		&:hover {
+			transform: scale(1.05);
+		}
+	}
 
 	.view-icon {
 		font-size: 30px;
@@ -247,10 +329,7 @@ function dismissClosedPreview() {
 		font-size: 12px;
 		line-height: 1;
 		letter-spacing: 0.5px;
-	}
-
-	&:hover {
-		transform: translate(-50%, -50%) scale(1.05);
+		white-space: nowrap;
 	}
 }
 
@@ -292,5 +371,77 @@ body[arco-theme='dark'] & {
 	max-height: 80vh;
 	object-fit: contain;
 	background-color: #000;
+}
+
+/* 切换页面弹窗的页面列表 */
+.page-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	max-height: 50vh;
+	overflow-y: auto;
+}
+
+.page-item {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 14px;
+	border: 1px solid var(--color-border-2, #e5e6eb);
+	border-radius: var(--border-radius-medium);
+	cursor: pointer;
+	transition: all 0.15s ease;
+
+	&:hover {
+		border-color: rgb(var(--primary-6));
+		background: rgb(var(--primary-1));
+	}
+
+	&.active {
+		border-color: rgb(var(--primary-6));
+		background: rgb(var(--primary-1));
+
+		.page-item-title {
+			color: rgb(var(--primary-6));
+		}
+	}
+}
+
+.page-item-icon {
+	width: 24px;
+	height: 24px;
+	border-radius: 4px;
+	flex-shrink: 0;
+	object-fit: contain;
+}
+
+.page-item-icon-default {
+	width: 24px;
+	height: 24px;
+	font-size: 24px;
+	flex-shrink: 0;
+	color: var(--color-text-3, #86909c);
+}
+
+.page-item-text {
+	flex: 1;
+	min-width: 0;
+}
+
+.page-item-title {
+	font-size: 14px;
+	font-weight: 500;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.page-item-url {
+	font-size: 12px;
+	color: var(--color-text-3, #86909c);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	margin-top: 2px;
 }
 </style>
