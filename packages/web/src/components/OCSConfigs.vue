@@ -138,14 +138,14 @@ function renderOCS() {
 				[
 					'.ocs-list { display: flex; flex-direction: column; gap: 6px; }',
 					'.ocs-list-item { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-radius: 10px; border: 1px solid #eceef1; background: #fff; cursor: pointer; user-select: none; transition: all 0.2s ease; }',
-					'.ocs-list-item:hover { border-color: #165dff; box-shadow: 0 4px 14px rgba(22,93,255,0.12); transform: translateY(-1px); }',
+					'.ocs-list-item:hover { border-color: var(--theme-primary-color); box-shadow: 0 4px 14px rgba(var(--primary-6),0.12); transform: translateY(-1px); }',
 					'.ocs-list-item:active { transform: translateY(0); }',
 					'.ocs-list-item-name { flex: 1; font-weight: 600; font-size: 13px; color: #1d2129; }',
 					'.ocs-list-item-arrow { width: 7px; height: 7px; border-right: 2px solid #c9cdd4; border-bottom: 2px solid #c9cdd4; transform: rotate(-45deg); transition: transform 0.2s, border-color 0.2s; flex-shrink: 0; }',
-					'.ocs-list-item:hover .ocs-list-item-arrow { transform: rotate(-45deg) translate(2px, -2px); border-color: #165dff; }',
+					'.ocs-list-item:hover .ocs-list-item-arrow { transform: rotate(-45deg) translate(2px, -2px); border-color: var(--theme-primary-color); }',
 					// 暗色模式（通过 shadow host 上的 .ocs-dark 类触发，body[arco-theme] 无法穿透 Shadow DOM）
 					':host(.ocs-dark) .ocs-list-item { background: #2c2c2c; border-color: #4b4848; }',
-					':host(.ocs-dark) .ocs-list-item:hover { border-color: #165dff; box-shadow: 0 4px 14px rgba(0,0,0,0.3); }',
+					':host(.ocs-dark) .ocs-list-item:hover { border-color: var(--theme-primary-color); box-shadow: 0 4px 14px rgba(0,0,0,0.3); }',
 					':host(.ocs-dark) .ocs-list-item-name { color: #cccccc; }',
 					':host(.ocs-dark) .ocs-list-item-arrow { border-color: #6a6a6a; }'
 				].join('\n')

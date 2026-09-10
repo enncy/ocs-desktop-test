@@ -207,9 +207,9 @@ onMounted(async () => {
 		}
 	});
 
-	/** 监听主题模式变化（白天/夜间/自动） */
+	/** 监听主题变化（白天/夜间/自动 + 主题颜色） */
 	watch(
-		() => store.render.setting.theme.mode,
+		() => [store.render.setting.theme.mode, store.render.setting.theme.color],
 		() => {
 			changeTheme().catch(console.error);
 		}

@@ -7,7 +7,7 @@ import type { AppStore, Config, ScriptWorker as ScriptWorkerContract } from '@oc
 import { AutomationScripts, LegacyScriptMappings } from '../scripts/index';
 import _get from 'lodash/get';
 import child_process from 'child_process';
-import { getBrowserMajorVersion, getExtensionPaths } from '../utils/browser';
+import { getBrowserMajorVersion, getExtensionPaths, ensureNewTabExtension } from '../utils/browser';
 
 const { bgRedBright, bgBlueBright, bgYellowBright, bgGray } = new Chalk({ level: 2 });
 
@@ -44,6 +44,8 @@ export class ScriptWorker implements ScriptWorkerContract {
 	automationScripts: AS[] = [];
 	/** 可关闭的浏览器拓展主页 */
 	store?: AppStore;
+	/** 是否启用自定义导航页（关闭后：不加载导航页扩展、初始页面为空白页） */
+	bookmarkPageEnabled: boolean = true;
 	/** 浏览器中软件设置的名字 */
 	browserInfo?: BrowserInfo;
 	config?: BrowserConfig;
@@ -107,8 +109,18 @@ export class ScriptWorker implements ScriptWorkerContract {
 		ScriptWorker.langs = langs;
 
 		this.uid = uid;
+		// store 由渲染进程传入（render 已解密），读取自定义导航页开关，兼容旧版本缺省字段（默认开启）
+		this.bookmarkPageEnabled =
+			(store as AppStore & { render?: any }).render?.setting?.browser?.bookmarkPage?.enable !== false;
 		// 拓展文件夹路径
 		this.extensionPaths = getExtensionPaths(store.paths.extensionsFolder);
+		// 导航页扩展：通过 chrome_url_overrides.newtab 将「新建标签页」重定向到本地导航页（按浏览器独立生成，携带 uid）
+		// 未启用自定义导航页时不加载该扩展，浏览器保持默认空白导航页
+		if (this.bookmarkPageEnabled) {
+			this.extensionPaths.push(
+				ensureNewTabExtension(path.join(cachePath, 'ocs-newtab'), { uid, port: store.server?.port || 15319 })
+			);
+		}
 
 		// 自动化程序
 		this.automationScripts = automationScripts;
@@ -229,9 +241,10 @@ export class ScriptWorker implements ScriptWorkerContract {
 				},
 
 				automationScripts: this.automationScripts,
-				bookmarksPageUrl: this.store
-					? `http://localhost:${this.store?.server.port || 15319}/index.html#/bookmarks?uid=${this.uid}`
-					: undefined,
+				bookmarksPageUrl:
+					this.store && this.bookmarkPageEnabled
+						? `http://localhost:${this.store?.server.port || 15319}/index.html#/bookmarks?uid=${this.uid}`
+						: undefined,
 				serverPort: this.store?.server.port || 15319,
 				closeableExtensionHomepages: [
 					'docs.scriptcat.org',

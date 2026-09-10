@@ -29,8 +29,11 @@
 				</h1>
 			</div>
 
-			<!-- 浏览器信息（独占一行 banner） -->
-			<div class="browser-banner">
+			<!-- 浏览器信息（独占一行 banner，无 uid 时隐藏） -->
+			<div
+				v-if="browserUid"
+				class="browser-banner"
+			>
 				<div class="browser-info-header">
 					<div class="browser-info-content">
 						<div class="browser-name">
@@ -111,7 +114,7 @@
 					v-if="showEmptyResult"
 					class="empty-result"
 					status="info"
-					title="标签页搜索引擎、快捷访问等功能未开启"
+					title="导航页搜索引擎、快捷访问等功能未开启"
 				>
 					<template #subtitle>
 						<p>接下来： 等待初始化后，即可使用安装的浏览器脚本管理拓展，进行脚本的运行。</p>
@@ -134,7 +137,7 @@
 						>
 							<img
 								class="engine-icon"
-								:src="engine.icon"
+								:src="localIcon(engine.icon)"
 								:alt="engine.name"
 							/>
 							{{ engine.name }}
@@ -257,7 +260,7 @@
 					>
 						<img
 							class="icon"
-							:src="customSiteIcon(site.url)"
+							:src="localIcon(site.url)"
 						/>
 						<span class="bookmark-name">{{ site.name }}</span>
 						<a-tooltip
@@ -355,24 +358,24 @@ type BookMark = BookmarkResource;
 
 const bookmarks = ref<BookMark[]>([]);
 
-/** 搜索引擎配置，默认百度 */
+/** 搜索引擎配置，默认百度（icon 为站点地址，经本地图标服务取 favicon） */
 const searchEngines = [
 	{
 		key: 'baidu',
 		name: '百度',
-		icon: 'https://www.baidu.com/favicon.ico',
+		icon: 'https://www.baidu.com',
 		search: (q: string) => `https://www.baidu.com/s?wd=${encodeURIComponent(q)}`
 	},
 	{
 		key: 'bing',
 		name: '必应',
-		icon: 'https://www.bing.com/favicon.ico',
+		icon: 'https://www.bing.com',
 		search: (q: string) => `https://www.bing.com/search?q=${encodeURIComponent(q)}`
 	},
 	{
 		key: 'google',
 		name: '谷歌',
-		icon: 'https://www.google.com/favicon.ico',
+		icon: 'https://www.google.com',
 		search: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`
 	}
 ] as const;
@@ -399,6 +402,11 @@ function switchEngine(key: EngineKey) {
 	}
 }
 
+/** 跳转链接：在扩展 iframe 中运行时跳转顶层窗口，避免搜索结果困在 iframe 内且地址栏不可见 */
+function navigateTo(url: string) {
+	(window.top || window).location.href = url;
+}
+
 function doSearch() {
 	const keyword = searchKeyword.value.trim();
 	if (!keyword) return;
@@ -406,7 +414,7 @@ function doSearch() {
 	showHistory.value = false;
 	// 完整网址直接访问
 	if (/^https?:\/\//i.test(keyword)) {
-		window.location.href = keyword;
+		navigateTo(keyword);
 		return;
 	}
 	// 搜索防呆：输入类似网址时，确认是打开链接还是执行搜索
@@ -417,15 +425,15 @@ function doSearch() {
 			okText: '打开链接',
 			cancelText: '执行搜索',
 			onOk: () => {
-				window.location.href = `https://${keyword}`;
+				navigateTo(`https://${keyword}`);
 			},
 			onCancel: () => {
-				window.location.href = currentEngine.value.search(keyword);
+				navigateTo(currentEngine.value.search(keyword));
 			}
 		});
 		return;
 	}
-	window.location.href = currentEngine.value.search(keyword);
+	navigateTo(currentEngine.value.search(keyword));
 }
 
 /** 搜索历史（localStorage 持久化） */
@@ -495,13 +503,16 @@ function getCurrentUid(): string | null {
 	return null;
 }
 
+/** 当前浏览器 uid（无 uid 时隐藏浏览器信息条，例如直接访问导航页的场景） */
+const browserUid = getCurrentUid();
+
 const state = reactive({
 	loading: false,
 	warn: false,
 	tips: ['']
 });
 
-/** 标签页设置（从本地服务器读取，读取失败时默认全部开启） */
+/** 导航页设置（从本地服务器读取，读取失败时默认全部开启） */
 const pageSettings = reactive({
 	enableSearch: true,
 	enableQuickAccess: true,
@@ -513,15 +524,15 @@ const showEmptyResult = computed(
 	() => !pageSettings.enableSearch && !pageSettings.enableQuickAccess && pageSettings.customSites.length === 0
 );
 
-/** 自定义网站图标（走本地服务器图标代理，带兜底图标） */
-function customSiteIcon(url: string): string {
+/** 网站图标（走本地服务器图标服务：多源降级 + 缓存 + 兜底图标，避免跨域/网络原因加载失败） */
+function localIcon(url: string): string {
 	const port = location.port || '15319';
 	return `http://localhost:${port}/icon?url=${encodeURIComponent(url)}`;
 }
 
 /** 添加按钮点击：提示前往软件设置中添加（导航页不执行添加操作） */
 function notifyAddSite() {
-	Message.info('请前往「软件设置 - 浏览器设置 - 标签页自定义网站」中添加网站。');
+	Message.info('请前往「软件设置 - 浏览器设置 - 自定义网站」中添加网站。');
 }
 
 /** 可见的状态提示：过滤空提示，初始化状态（如"浏览器初始化完成。"）直接隐藏状态条 */
@@ -580,7 +591,7 @@ onMounted(async () => {
 		}
 	}
 
-	// 获取标签页设置（搜索引擎开关、快捷访问开关、自定义网站）
+	// 获取导航页设置（搜索引擎开关、快捷访问开关、自定义网站）
 	try {
 		const port = location.port || '15319';
 		const res = await fetch(`http://localhost:${port}/api/bookmark/page-settings`);
@@ -591,7 +602,7 @@ onMounted(async () => {
 			pageSettings.customSites = Array.isArray(settings.customSites) ? settings.customSites : [];
 		}
 	} catch (e) {
-		console.error('获取标签页设置失败', e);
+		console.error('获取导航页设置失败', e);
 	}
 });
 

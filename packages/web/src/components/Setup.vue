@@ -362,8 +362,9 @@ const _preset_steps = {
 				step.description += `\n已安装脚本管理器：${default_extension.name} - ${default_extension.url}`;
 			};
 
-			// 如果全部都没安装则安装第一个
-			if (!extensions.every((ext) => ext.installed)) {
+			// 仅当全部都没安装时才安装第一个（原误判为 every：任一未安装就把所有拓展全部重装，
+			// 导致已装脚本猫的用户在初始化/修复时被额外安装篡改猴，安装中断还会留下空目录残留）
+			if (!extensions.some((ext) => ext.installed)) {
 				return install_new();
 			}
 			// 如果版本不支持

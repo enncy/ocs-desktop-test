@@ -56,35 +56,6 @@
 				<span class="card-title-icon">⚙️</span>
 				基本设置
 			</template>
-			<Description label="软件布局">
-				<a-select
-					v-model="store.render.setting.mode"
-					style="width: 160px"
-					@change="changeMode"
-				>
-					<a-option value="simple">简洁模式</a-option>
-					<a-option value="professional">专业模式</a-option>
-				</a-select>
-				<a-popover>
-					<template #content>
-						<div style="max-width: 300px">
-							<div>专业模式相比简洁模式的差异：</div>
-							<div>【额外软件设置】</div>
-							<div>显示侧边栏文字、浏览器路径设置、浏览器缓存预警阈值</div>
-							<div>【浏览器列表页】</div>
-							<div>文件夹层级管理与路径导航、按名称/备注/标签搜索筛选、批量启动/关闭/删除/移动等批量操作、右侧浏览器面板（运行日志/备注/自动化程序配置）</div>
-							<div>【监控页】</div>
-							<div>可同时查看多个浏览器的实时画面</div>
-							<div>【简洁模式】</div>
-							<div>浏览器以卡片平铺展示（可设置 1-4 列），无文件夹与批量操作，适合简单场景</div>
-						</div>
-					</template>
-					<Icon
-						class="ms-2"
-						type="help_outline"
-					/>
-				</a-popover>
-			</Description>
 
 			<Description label="开机自启">
 				<a-switch v-model="store.window.autoLaunch" />
@@ -101,15 +72,115 @@
 			<Description label="窗口置顶">
 				<a-switch v-model="store.window.alwaysOnTop" />
 			</Description>
+
+			<Description>
+				<template #label>
+					软件布局
+					<a-popover>
+						<template #content>
+							<div style="max-width: 300px">
+								<div>专业模式相比简洁模式的差异：</div>
+								<div>【额外软件设置】</div>
+								<div>显示侧边栏文字、浏览器路径设置、浏览器缓存预警阈值</div>
+								<div>【浏览器列表页】</div>
+								<div>
+									文件夹层级管理与路径导航、按名称/备注/标签搜索筛选、批量启动/关闭/删除/移动等批量操作、右侧浏览器面板（运行日志/备注/自动化程序配置）
+								</div>
+								<div>【监控页】</div>
+								<div>可同时查看多个浏览器的实时画面</div>
+								<div>【简洁模式】</div>
+								<div>浏览器以卡片平铺展示（可设置 1-4 列），无文件夹与批量操作，适合简单场景</div>
+							</div>
+						</template>
+						<Icon
+							class="label-help-icon"
+							type="help_outline"
+						/>
+					</a-popover>
+				</template>
+				<a-select
+					v-model="store.render.setting.mode"
+					style="width: 160px"
+					@change="changeMode"
+				>
+					<a-option
+						v-for="item of layoutOptions"
+						:key="item.value"
+						:value="item.value"
+					>
+						<Icon
+							:type="item.icon"
+							:size="16"
+							class="option-icon"
+						/>
+						{{ item.label }}
+					</a-option>
+					<!-- 选中框自定义渲染（默认行为会把插槽拍平成纯文本，导致图标连字文本外泄） -->
+					<template #label>
+						<Icon
+							:type="currentLayoutOption.icon"
+							:size="16"
+							class="option-icon"
+						/>
+						{{ currentLayoutOption.label }}
+					</template>
+				</a-select>
+			</Description>
+
 			<Description label="主题样式">
 				<a-select
 					v-model="store.render.setting.theme.mode"
 					style="width: 160px"
 					@change="changeTheme"
 				>
-					<a-option value="auto">自动（跟随系统）</a-option>
-					<a-option value="light">白天</a-option>
-					<a-option value="dark">夜间</a-option>
+					<a-option
+						v-for="item of themeModeOptions"
+						:key="item.value"
+						:value="item.value"
+					>
+						<Icon
+							:type="item.icon"
+							:size="16"
+							class="option-icon"
+						/>
+						{{ item.label }}
+					</a-option>
+					<!-- 选中框自定义渲染（同软件布局） -->
+					<template #label>
+						<Icon
+							:type="currentThemeModeOption.icon"
+							:size="16"
+							class="option-icon"
+						/>
+						{{ currentThemeModeOption.label }}
+					</template>
+				</a-select>
+			</Description>
+			<Description label="主题颜色">
+				<a-select
+					v-model="store.render.setting.theme.color"
+					style="width: 160px"
+					@change="changeTheme"
+				>
+					<a-option
+						v-for="item of themeColors"
+						:key="item.value"
+						:value="item.value"
+					>
+						<span
+							class="theme-color-dot"
+							:style="{ backgroundColor: item.color }"
+						></span>
+						{{ item.label }}
+					</a-option>
+					<!-- 选中框自定义渲染（同软件布局） -->
+					<template #label>
+						<span
+							class="theme-color-dot"
+							:style="{ backgroundColor: currentThemeColorOption.color }"
+						></span>
+						{{ currentThemeColorOption.label }}
+					</template>
 				</a-select>
 			</Description>
 			<Description
@@ -145,24 +216,27 @@
 			</template>
 			<BrowserPath v-if="!simple"></BrowserPath>
 
-			<Description label="浏览器增强（实验性）">
+			<Description>
+				<template #label>
+					浏览器增强（实验性）
+					<a-popover>
+						<template #content>
+							<div>开启后浏览器将以"防休眠/防冻结"模式运行，请注意：</div>
+							<div>1. CPU / 内存 / 功耗显著上升，笔记本请注意电量；</div>
+							<div>2. 最多同时运行 4 个浏览器，超出将直接拒绝启动（需先关闭其他浏览器，或关闭浏览器增强功能）；</div>
+							<div>3. 会向所有页面注入一段静音音频以保持页面活跃（隐身实现，不暴露任何函数/全局变量）；</div>
+							<div>4. 仅对之后新启动的浏览器生效，已运行的浏览器需重启后生效；</div>
+							<div>5. ⚠️ 该功能为实验性功能，正在测试中，可能存在未知BUG，请谨慎使用。</div>
+						</template>
+						<Icon
+							class="label-help-icon"
+							type="help_outline"
+						/>
+					</a-popover>
+				</template>
 				<a-tooltip content="防休眠/防冻结：浏览器最小化或处于后台时仍可长时间运行 JS。仅对新启动的浏览器生效。">
 					<a-switch v-model="store.render.setting.browser.browserEnhancement" />
 				</a-tooltip>
-				<a-popover>
-					<template #content>
-						<div>开启后浏览器将以"防休眠/防冻结"模式运行，请注意：</div>
-						<div>1. CPU / 内存 / 功耗显著上升，笔记本请注意电量；</div>
-						<div>2. 最多同时运行 4 个浏览器，超出将直接拒绝启动（需先关闭其他浏览器，或关闭浏览器增强功能）；</div>
-						<div>3. 会向所有页面注入一段静音音频以保持页面活跃（隐身实现，不暴露任何函数/全局变量）；</div>
-						<div>4. 仅对之后新启动的浏览器生效，已运行的浏览器需重启后生效；</div>
-						<div>5. ⚠️ 该功能为实验性功能，正在测试中，可能存在未知BUG，请谨慎使用。</div>
-					</template>
-					<Icon
-						class="ms-2"
-						type="help_outline"
-					/>
-				</a-popover>
 			</Description>
 
 			<Description label="原生弹窗">
@@ -193,103 +267,121 @@
 				</a-tooltip>
 			</Description>
 
-			<Description
+			<!-- 「显示浏览器预览」的子设置：左侧竖线体现层级从属关系 -->
+			<div
 				v-if="store.render.setting.browser.screenshotPreview"
-				label="预览帧率"
+				class="sub-settings"
 			>
-				<a-select
-					v-model="store.render.setting.browser.screenshotFramerate"
-					style="width: 200px"
-					:placeholder="''"
-				>
-					<a-option value="high">高（约 30 帧/秒）</a-option>
-					<a-option value="medium">中（约 15 帧/秒）</a-option>
-					<a-option value="low">低（约 6 帧/秒）</a-option>
-				</a-select>
-				<a-popover>
-					<template #content>
-						<div>控制预览帧率，越高越流畅但占用更多资源。</div>
-						<div>实际帧率随页面内容动态变化（静止画面自动停止推流），实时生效。</div>
+				<Description>
+					<template #label>
+						预览帧率
+						<a-popover>
+							<template #content>
+								<div>控制预览帧率，越高越流畅但占用更多资源。</div>
+								<div>实际帧率随页面内容动态变化（静止画面自动停止推流），实时生效。</div>
+							</template>
+							<Icon
+								class="label-help-icon"
+								type="help_outline"
+							/>
+						</a-popover>
 					</template>
-					<Icon
-						class="ms-2"
-						type="help_outline"
-					/>
-				</a-popover>
-			</Description>
+					<a-select
+						v-model="store.render.setting.browser.screenshotFramerate"
+						style="width: 200px"
+						:placeholder="''"
+					>
+						<a-option value="high">高（约 30 帧/秒）</a-option>
+						<a-option value="medium">中（约 15 帧/秒）</a-option>
+						<a-option value="low">低（约 6 帧/秒）</a-option>
+					</a-select>
+				</Description>
 
-			<Description
-				v-if="store.render.setting.browser.screenshotPreview"
-				label="预览画质"
-			>
-				<a-select
-					v-model="store.render.setting.browser.screenshotQuality"
-					style="width: 200px"
-					:placeholder="''"
-				>
-					<a-option value="high">高（1280×720）</a-option>
-					<a-option value="medium">中（640×360）</a-option>
-					<a-option value="low">低（480×270）</a-option>
-				</a-select>
-				<a-popover>
-					<template #content>
-						<div>控制预览画质（分辨率与压缩率），越高越清晰但占用更多资源，实时生效。</div>
+				<Description>
+					<template #label>
+						预览画质
+						<a-popover>
+							<template #content>
+								<div>控制预览画质（分辨率与压缩率），越高越清晰但占用更多资源，实时生效。</div>
+							</template>
+							<Icon
+								class="label-help-icon"
+								type="help_outline"
+							/>
+						</a-popover>
 					</template>
-					<Icon
-						class="ms-2"
-						type="help_outline"
-					/>
-				</a-popover>
-			</Description>
+					<a-select
+						v-model="store.render.setting.browser.screenshotQuality"
+						style="width: 200px"
+						:placeholder="''"
+					>
+						<a-option value="high">高（1280×720）</a-option>
+						<a-option value="medium">中（640×360）</a-option>
+						<a-option value="low">低（480×270）</a-option>
+					</a-select>
+				</Description>
+				</div>
 
-			<Description
-				v-if="!simple"
-				label="浏览器缓存预警阈值"
-			>
+				<Description v-if="!simple">
+				<template #label>
+					浏览器缓存预警阈值
+					<a-popover>
+						<template #content>
+							<div>当前浏览器缓存总大小超过此数字时则会弹出警告弹窗。</div>
+							<div>也可在左上角工具中找到 "清除浏览器缓存" 功能</div>
+						</template>
+						<Icon
+							class="label-help-icon"
+							type="help_outline"
+						/>
+					</a-popover>
+				</template>
 				<a-input-number
 					v-model="store.render.setting.browser.cachesSizeWarningPoint"
 					style="width: 200px"
 				>
 					<template #append> GB </template>
 				</a-input-number>
-				<a-popover>
-					<template #content>
-						<div>当前浏览器缓存总大小超过此数字时则会弹出警告弹窗。</div>
-						<div>也可在左上角工具中找到 "清除浏览器缓存" 功能</div>
-					</template>
-					<Icon
-						class="ms-2"
-						type="help_outline"
-					/>
-				</a-popover>
-			</Description>
+				</Description>
 
-			<Description label="标签页-搜索引擎">
-				<a-tooltip content="关闭后，浏览器导航页（标签页）将不再显示搜索引擎，重启浏览器后生效">
-					<a-switch v-model="store.render.setting.browser.bookmarkPage.enableSearch" />
+			<Description label="自定义导航页">
+				<a-tooltip content="关闭后，浏览器的新建页面将显示默认空白导航页，不再使用自定义导航页，重启浏览器后生效">
+					<a-switch v-model="store.render.setting.browser.bookmarkPage.enable" />
 				</a-tooltip>
 			</Description>
 
-			<Description label="标签页-快捷平台访问">
-				<a-tooltip content="关闭后，浏览器导航页（标签页）将不再显示快捷访问平台列表，重启浏览器后生效">
-					<a-switch v-model="store.render.setting.browser.bookmarkPage.enableQuickAccess" />
-				</a-tooltip>
-			</Description>
+			<!-- 「自定义导航页」的子设置：左侧竖线体现层级从属关系 -->
+			<div
+				v-if="store.render.setting.browser.bookmarkPage.enable"
+				class="sub-settings"
+			>
+				<Description label="搜索引擎">
+					<a-tooltip content="关闭后，浏览器导航页将不再显示搜索引擎，重启浏览器后生效">
+						<a-switch v-model="store.render.setting.browser.bookmarkPage.enableSearch" />
+					</a-tooltip>
+				</Description>
 
-			<Description label="标签页-自定义网站">
-				<a-button
-					size="small"
-					@click="openCustomSiteModal"
-				>
-					管理自定义网站
-				</a-button>
-			</Description>
-		</a-card>
+				<Description label="快捷平台访问">
+					<a-tooltip content="关闭后，浏览器导航页将不再显示快捷访问平台列表，重启浏览器后生效">
+						<a-switch v-model="store.render.setting.browser.bookmarkPage.enableQuickAccess" />
+					</a-tooltip>
+				</Description>
 
-		<!-- 自定义标签页网站管理弹窗 -->
-		<a-modal
+				<Description label="自定义网站">
+					<a-button
+						size="small"
+						@click="openCustomSiteModal"
+					>
+						管理自定义网站
+					</a-button>
+				</Description>
+			</div>
+			</a-card>
+
+			<!-- 自定义导航页网站管理弹窗 -->
+			<a-modal
 			v-model:visible="customSiteModalVisible"
-			title="自定义标签页网站"
+			title="自定义导航页网站"
 			:footer="false"
 			width="560px"
 			unmount-on-close
@@ -394,7 +486,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import Description from './Description.vue';
 import Path from './Path.vue';
 import { t, store, DEFAULT_RENDER } from '../store';
@@ -419,6 +511,39 @@ interface SettingPanelProps {
 withDefaults(defineProps<SettingPanelProps>(), {
 	simple: false
 });
+
+/** 主题颜色选项（value 对应 theme.less 中 body[theme-color='xxx'] 预设，color 用于选择器色点展示） */
+const themeColors = [
+	{ value: 'blue', label: '默认蓝', color: '#165dff' },
+	{ value: 'purple', label: '典雅紫', color: '#722ed1' },
+	{ value: 'orange', label: '活力橙', color: '#ff7d00' },
+	{ value: 'green', label: '清新绿', color: '#00b42a' },
+	{ value: 'cyan', label: '静谧青', color: '#14c9c9' }
+] as const;
+
+/** 软件布局选项 */
+const layoutOptions = [
+	{ value: 'simple', label: '简洁模式', icon: 'grid_view' },
+	{ value: 'professional', label: '专业模式', icon: 'view_sidebar' }
+] as const;
+
+/** 主题样式选项 */
+const themeModeOptions = [
+	{ value: 'auto', label: '自动（跟随系统）', icon: 'brightness_auto' },
+	{ value: 'light', label: '白天', icon: 'light_mode' },
+	{ value: 'dark', label: '夜间', icon: 'dark_mode' }
+] as const;
+
+/** 当前选中项（用于 select #label 插槽渲染图标；兜底取第一项，兼容历史遗留值） */
+const currentLayoutOption = computed(
+	() => layoutOptions.find((o) => o.value === store.render.setting.mode) ?? layoutOptions[0]
+);
+const currentThemeModeOption = computed(
+	() => themeModeOptions.find((o) => o.value === store.render.setting.theme.mode) ?? themeModeOptions[0]
+);
+const currentThemeColorOption = computed(
+	() => themeColors.find((o) => o.value === store.render.setting.theme.color) ?? themeColors[0]
+);
 
 /** 重置设置 */
 async function reset() {
@@ -455,7 +580,7 @@ function changeMode() {
 	router.push(store.render.setting.mode === 'professional' ? '/browsers' : '/simple');
 }
 
-/** 自定义标签页网站管理 */
+/** 自定义导航页网站管理 */
 const customSiteModalVisible = ref(false);
 const customSiteForm = reactive({ name: '', url: '', editingIndex: -1 });
 
@@ -511,7 +636,6 @@ function removeCustomSite(index: number) {
 		resetCustomSiteForm();
 	}
 }
-
 </script>
 
 <style scoped lang="less">
@@ -534,6 +658,36 @@ function removeCustomSite(index: number) {
 	font-size: 22px;
 	display: inline-flex;
 	align-items: center;
+}
+
+.theme-color-dot {
+	display: inline-block;
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	margin-right: 6px;
+	vertical-align: middle;
+}
+
+.option-icon {
+	margin-right: 6px;
+	vertical-align: -3px;
+}
+
+/* 设置项 label 后的帮助图标（替代原先占用右侧控件列的 help_outline 图标） */
+.label-help-icon {
+	margin-left: 4px;
+	vertical-align: -3px;
+	color: var(--color-text-3);
+	cursor: pointer;
+}
+
+/* 子设置分组：左侧竖线 + 缩进，体现对父设置的从属关系 */
+.sub-settings {
+	border-left: 2px solid var(--theme-border-color);
+	margin-left: 4px;
+	padding-left: 12px;
+	margin-bottom: 8px;
 }
 
 .custom-site-empty {

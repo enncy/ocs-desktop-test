@@ -22,7 +22,7 @@
 				>
 					<Icon
 						type="play_circle"
-						color="#165dff"
+						color="var(--theme-primary-color)"
 						:class="iconClass"
 					/>
 					<span class="ms-1">启动</span>
@@ -44,7 +44,7 @@
 					<Icon
 						type="push_pin"
 						:class="iconClass"
-						color="#165dff"
+						color="var(--theme-primary-color)"
 					/>
 				</a-button>
 			</a-tooltip>
@@ -62,7 +62,7 @@
 					<Icon
 						type="sync"
 						:class="iconClass"
-						color="#165dff"
+						color="var(--theme-primary-color)"
 					/>
 				</a-button>
 			</a-tooltip>

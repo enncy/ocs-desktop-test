@@ -230,7 +230,7 @@ export async function startupServer() {
 		});
 	});
 
-	/** 获取导航页（标签页）设置：搜索引擎开关、快捷平台访问开关、自定义网站列表 */
+	/** 获取导航页设置：搜索引擎开关、快捷平台访问开关、自定义网站列表 */
 	app.get('/api/bookmark/page-settings', (req, res) => {
 		const render = getDecryptedRenderData(store);
 		const bookmarkPage = render?.setting?.browser?.bookmarkPage;

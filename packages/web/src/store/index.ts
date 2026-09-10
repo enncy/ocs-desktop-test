@@ -51,6 +51,8 @@ export type WebStore = {
 		theme: {
 			/** 主题模式：light 白天 / dark 夜间 / auto 跟随系统 */
 			mode: 'light' | 'dark' | 'auto';
+			/** 主题颜色：blue 默认蓝（对应 theme.less 中 body[theme-color='xxx'] 预设） */
+			color: 'blue' | 'purple' | 'orange' | 'green' | 'cyan';
 		};
 		/** ocs 特殊配置 */
 		ocs: {
@@ -78,11 +80,13 @@ export type WebStore = {
 			screenshotQuality: 'high' | 'medium' | 'low';
 			/** 浏览器增强（防休眠/防冻结）：启动时附加防节流参数并注入静音音频豁免，仅对新启动的浏览器生效 */
 			browserEnhancement: boolean;
-			/** 导航页（标签页）设置 */
+			/** 导航页设置 */
 			bookmarkPage: {
-				/** 是否启用标签页搜索引擎功能 */
+				/** 是否启用自定义导航页（关闭后不更改浏览器新建页面，显示默认空白导航页） */
+				enable: boolean;
+				/** 是否启用导航页搜索引擎功能 */
 				enableSearch: boolean;
-				/** 是否启用标签页快捷平台访问 */
+				/** 是否启用导航页快捷平台访问 */
 				enableQuickAccess: boolean;
 				/** 自定义网站列表（加载在快捷访问上方） */
 				customSites: { name: string; url: string }[];
@@ -164,7 +168,8 @@ export const DEFAULT_RENDER = {
 			executablePath: ''
 		},
 		theme: {
-			mode: 'auto' as const
+			mode: 'auto' as const,
+			color: 'blue' as const
 		},
 		ocs: {
 			currentProjectName: '',
@@ -181,6 +186,7 @@ export const DEFAULT_RENDER = {
 			screenshotQuality: 'medium' as const,
 			browserEnhancement: false,
 			bookmarkPage: {
+				enable: true,
 				enableSearch: true,
 				enableQuickAccess: true,
 				customSites: []

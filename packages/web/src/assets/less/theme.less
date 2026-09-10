@@ -49,6 +49,39 @@ body[arco-theme='dark'] {
 	--theme-shadow-color-strong: rgba(0, 0, 0, 0.5);
 }
 
+/* ============ 主题颜色预设 ============
+ * 通过 body[theme-color='xxx'] 切换（由 changeTheme() 根据 setting.theme.color 设置）。
+ * 直接复用 Arco 内置色板（arco.css 已为每种颜色提供亮/暗两套色值，暗色模式自动适配），
+ * 默认蓝为 arco 默认主色（arcoblue），无需预设。
+ * 注意：必须放在上方亮/暗基础 token 之后，以保证同等优先级下覆盖暗色的 --theme-primary-color。 */
+.theme-color-preset(@name) {
+	body[theme-color='@{name}'] {
+		--primary-1: var(~'--@{name}-1');
+		--primary-2: var(~'--@{name}-2');
+		--primary-3: var(~'--@{name}-3');
+		--primary-4: var(~'--@{name}-4');
+		--primary-5: var(~'--@{name}-5');
+		--primary-6: var(~'--@{name}-6');
+		--primary-7: var(~'--@{name}-7');
+		--primary-8: var(~'--@{name}-8');
+		--primary-9: var(~'--@{name}-9');
+		--primary-10: var(~'--@{name}-10');
+		--theme-primary-color: rgb(var(~'--@{name}-6'));
+		--theme-active-color: rgb(var(~'--@{name}-6'));
+	}
+
+	/* 暗色模式：激活色使用更亮一档（暗色色板 7 比 6 更亮），保持与默认蓝一致的明暗关系 */
+	body[arco-theme='dark'][theme-color='@{name}'] {
+		--theme-active-color: rgb(var(~'--@{name}-7'));
+	}
+}
+
+/* 不提供红/品红预设，避免与删除、错误等危险状态按钮颜色冲突 */
+.theme-color-preset(purple);
+.theme-color-preset(orange);
+.theme-color-preset(green);
+.theme-color-preset(cyan);
+
 /* ============ 暗色模式全局覆盖 ============ */
 body[arco-theme='dark'] {
 	color: #cccccc;
@@ -117,7 +150,7 @@ body[arco-theme='dark'] {
 
 	a,
 	a.link {
-		color: #61a5e4 !important;
+		color: var(--theme-active-color) !important;
 	}
 
 	.border-end,
@@ -172,7 +205,7 @@ body[arco-theme='dark'] {
 
 	.sider .sider-item.active {
 		background-color: #4b4b4b;
-		border-left: 6px solid #4898e2;
+		border-left: 6px solid var(--theme-primary-color);
 	}
 
 	.ps-table .ps-body-cell {

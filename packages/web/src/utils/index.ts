@@ -270,6 +270,13 @@ export async function changeTheme() {
 	} else {
 		document.body.removeAttribute('arco-theme');
 	}
+	// 应用主题颜色：body[theme-color] 驱动 theme.less 中的颜色预设（blue 为默认色，无需设置属性）
+	const themeColor = store.render.setting.theme.color || 'blue';
+	if (themeColor === 'blue') {
+		document.body.removeAttribute('theme-color');
+	} else {
+		document.body.setAttribute('theme-color', themeColor);
+	}
 	// 标题栏颜色需平台判断（macOS 不使用自定义标题栏）
 	const platform = await remote.methods.call('getPlatform');
 	document.body.classList.add('platform-' + platform);

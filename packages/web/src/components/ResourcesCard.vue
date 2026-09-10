@@ -347,6 +347,9 @@ onBeforeUnmount(() => {
 /** 切换脚本管理器时自动安装（先卸载已有的） */
 watch(selectedExtensionUrl, async (newUrl, oldUrl) => {
 	if (!newUrl || newUrl === oldUrl) return;
+	// 初始化选中（initExtensionSelection 从 '' 赋值为首个/已安装项）不触发自动安装，
+	// 否则仅打开设置页就会自动下载脚本管理器，并与环境检测并发产生 manifest ENOENT 误报
+	if (!oldUrl) return;
 	const file = selectedExtension.value;
 	if (!file || fileStatus[file.url]?.downloading || fileStatus[file.url]?.unzipping) return;
 	// 已安装则跳过

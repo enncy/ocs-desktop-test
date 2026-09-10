@@ -54,10 +54,8 @@ const barStyle = computed(() => {
 
 .status-bar-spin {
 	animation: status-bar-spin 1s linear infinite;
-	color: #165dff;
-	body[arco-theme='dark'] & {
-		color: #5ca0ff;
-	}
+	/* 跟随主题颜色（暗色下自动取暗色色板的亮色值） */
+	color: var(--theme-primary-color);
 }
 
 .status-bar-enter-active {

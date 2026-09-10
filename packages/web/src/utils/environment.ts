@@ -89,34 +89,33 @@ export const Environment = {
 		for (const extension of extensions) {
 			extension.installed = await resourceLoader.isZipFileExists('extensions', extension);
 		}
-		const installed_extension = extensions.find((e) => e.installed);
-		if (!installed_extension) return;
-
-		let manifest: any;
-		try {
-			manifest = JSON.parse(
-				String(
-					await remote.fs.call(
-						'readFileSync',
-						await remote.path.call(
-							'join',
-							await resourceLoader.getUnzippedPath('extensions', installed_extension),
-							'manifest.json'
-						),
-						'utf-8'
-					)
-				)
-			);
-		} catch {
-			// manifest.json 不存在或解析失败（如 OCR 等非扩展文件夹），视为未检测到可用扩展
-			return undefined;
+		// 遍历所有"文件夹存在"的候选拓展：文件夹存在但 manifest 缺失/损坏/版本过低时继续检查下一个，
+		// 避免安装中断留下的空目录（如篡改猴残留）遮蔽真正可用的脚本管理器（如脚本猫）
+		for (const installed_extension of extensions.filter((e) => e.installed)) {
+			let manifest: any;
+			try {
+				const manifestPath = await remote.path.call(
+					'join',
+					await resourceLoader.getUnzippedPath('extensions', installed_extension),
+					'manifest.json'
+				);
+				// 先用 existsSync 探测：zip 已下载但未解压（或解压不完整）时 manifest.json 不存在，
+				// 直接 readFileSync 会经 remote 层弹出「remote 模块错误」通知，属于误报
+				if (!remote.fs.callSync('existsSync', manifestPath)) {
+					continue;
+				}
+				manifest = JSON.parse(String(await remote.fs.call('readFileSync', manifestPath, 'utf-8')));
+			} catch {
+				// manifest.json 不存在或解析失败（如 OCR 等非扩展文件夹），跳过该候选
+				continue;
+			}
+			// 跳过 MV2 拓展
+			if (_get(manifest, 'manifest_version', 2) < 3) {
+				continue;
+			}
+			return installed_extension;
 		}
-		// 检查是否为 MV2 拓展，如果是则报错
-		if (_get(manifest, 'manifest_version', 2) < 3) {
-			return undefined;
-		}
-
-		return installed_extension;
+		return undefined;
 	},
 
 	async getValidUserScript() {
