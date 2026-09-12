@@ -4,8 +4,27 @@ import { electron } from '../utils/node';
 import { notify } from './notify';
 import { Modal } from '@arco-design/web-vue';
 import { h } from 'vue';
+import { marked } from 'marked';
 import { remote } from './remote';
-const { ipcRenderer } = electron;
+const { ipcRenderer, shell } = electron;
+
+/** 更新弹窗的 markdown 样式（注入一次） */
+function ensureUpdaterChangelogStyle() {
+	if (document.getElementById('updater-changelog-style')) {
+		return;
+	}
+	const style = document.createElement('style');
+	style.id = 'updater-changelog-style';
+	style.textContent = `
+		.update-changelog-content { max-height: 50vh; overflow-y: auto; margin-top: 8px; padding-right: 6px; }
+		.update-changelog-content h2 { font-size: 15px; margin: 12px 0 4px; }
+		.update-changelog-content h3 { font-size: 13px; margin: 8px 0 2px; }
+		.update-changelog-content ul { padding-left: 18px; margin: 4px 0; }
+		.update-changelog-content li { font-size: 13px; line-height: 1.7; }
+		.update-changelog-content a { color: rgb(var(--primary-6)); cursor: pointer; }
+	`;
+	document.head.appendChild(style);
+}
 
 export function activeIpcRenderListener() {
 	/** 如果正在更新的话，获取更新进度 */
@@ -33,6 +52,7 @@ export function activeIpcRenderListener() {
 		if (!new_version) {
 			return;
 		}
+		ensureUpdaterChangelogStyle();
 
 		Modal.confirm({
 			title: '🎉检测到版本更新🎉',
@@ -46,36 +66,18 @@ export function activeIpcRenderListener() {
 			content: () =>
 				h('div', [
 					h('div', '新版本 : ✨' + new_version.tag),
-					h('div', '版本更新内容如下: '),
-					h('div', [
-						...(new_version.description.feat?.length
-							? [
-									h('div', '新增：'),
-									h(
-										'ul',
-										new_version.description.feat.map((feature) => h('li', feature))
-									)
-							  ]
-							: []),
-						...(new_version.description.fix?.length
-							? [
-									h('div', '修复：'),
-									h(
-										'ul',
-										new_version.description.fix.map((feature) => h('li', feature))
-									)
-							  ]
-							: []),
-						...(new_version.description.other?.length
-							? [
-									h('div', '其他：'),
-									h(
-										'ul',
-										new_version.description.other.map((feature) => h('li', feature))
-									)
-							  ]
-							: [])
-					])
+					h('div', {
+						class: 'update-changelog-content',
+						innerHTML: marked.parse(new_version.markdown || '暂无更新日志'),
+						// markdown 中的链接（commit/compare 链接）统一用系统浏览器打开
+						onClick: (event: MouseEvent) => {
+							const anchor = (event.target as HTMLElement).closest('a');
+							if (anchor) {
+								event.preventDefault();
+								shell.openExternal(anchor.href);
+							}
+						}
+					})
 				])
 		});
 	});

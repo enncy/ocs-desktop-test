@@ -1,23 +1,7 @@
-import { OriginalAppStore } from './src/store';
-import { ScriptWorker } from './src/worker';
-
-export { RemoteMethods } from './src/tasks/remote.register';
-export type AppStore = typeof OriginalAppStore;
-
-export { ScriptWorker };
-
-export interface UserScripts {
-	id: number;
-	/** 用户脚本链接 */
-	url: string;
-	/** 启动自动安装脚本 */
-	enable: boolean;
-	/**
-	 * 脚本信息
-	 */
-	info: any;
-	/** 是否为本地脚本 */
-	isLocalScript: boolean;
-	/** 是否为网络链接加载的脚本 */
-	isInternetLinkScript: boolean;
-}
+/**
+ * 跨进程共享类型已下沉至 @ocs-desktop/common（见 common/src/contract.ts），
+ * 此处仅做兼容再导出；新代码请直接从 '@ocs-desktop/common' 引入。
+ */
+export type { RemoteMethods, AppStore, UserScripts, RawAutomationScript } from '@ocs-desktop/common';
+export { LoggerCore } from '@ocs-desktop/common';
+export { ScriptWorker } from './src/worker';

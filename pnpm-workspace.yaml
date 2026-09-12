@@ -1,2 +1,18 @@
 packages:
-  - 'packages/**'
+  - packages/**
+  # 排除 electron-builder 打包输出（其内含独立 package.json/node_modules，否则会被误识别为 workspace 项目）
+  - '!packages/*/dist/**'
+
+# 统一第三方依赖版本，消除跨包声明漂移；各包以 "catalog:" 引用
+catalog:
+  axios: ^0.25.0
+  chalk: 4.1.0
+  dayjs: ^1.10.7
+  playwright-core: ^1.52.0
+  typescript: ^4.5.5
+  vitest: ^3.0.0
+  xlsx: ^0.17.5
+
+onlyBuiltDependencies:
+  - electron
+  - keytar

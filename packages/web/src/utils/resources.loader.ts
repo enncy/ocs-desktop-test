@@ -1,6 +1,6 @@
 import { store } from '../store';
 import { remote } from './remote';
-import { ResourceFile, ResourceLoaderOptions } from '@ocs-desktop/common/src/api';
+import { ResourceFile, ResourceLoaderOptions } from '@ocs-desktop/common/web';
 
 export interface LocalResourceFile {
 	groupname: string;

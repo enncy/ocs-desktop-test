@@ -57,15 +57,16 @@
 				>
 					<a
 						v-for="(author, i) of script.info.authors"
-						:key="i"
+						:key="script.info.id + '_' + i"
 						:href="author.url"
 						class="user-script-author"
 						target="_blank"
 					>
 						<img
-							v-if="author.avatar"
+							v-if="author.avatar && !avatarErrors.has(author.avatar)"
 							:src="author.avatar"
 							class="user-script-icon"
+							@error="onAvatarError(author.avatar)"
 						/>
 						<Icon
 							v-else
@@ -158,7 +159,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, toRefs } from 'vue';
+import { ref, reactive, toRefs } from 'vue';
 import { StoreUserScript } from '../store';
 import { store } from '../store/index';
 import Icon from './Icon.vue';
@@ -173,6 +174,14 @@ const { scripts } = toRefs(props);
 
 /** 选中的脚本 */
 const selectedScript = ref<number>(0);
+
+/** 加载失败的头像URL集合 */
+const avatarErrors = reactive(new Set<string>());
+
+/** 头像加载失败回调 */
+function onAvatarError(avatar: string) {
+	avatarErrors.add(avatar);
+}
 
 /**
  * 根据指定的t，获取t距离现在过去了多少时间
@@ -247,19 +256,19 @@ function getUrlVersion(url: string) {
 	font-weight: bold;
 
 	a {
-		color: inherit;
+		color: var(--theme-text-color);
 	}
 }
 
 .user-script-author {
-	color: inherit;
+	color: var(--theme-text-color);
 	display: inline-flex;
 	align-items: center;
 }
 
 .user-script-name:hover {
 	cursor: pointer;
-	color: #1890ff;
+	color: var(--theme-active-color);
 	text-decoration: underline;
 }
 
@@ -273,6 +282,7 @@ function getUrlVersion(url: string) {
 
 .user-script-descriptions {
 	font-size: 12px;
+	color: var(--theme-text-color-secondary);
 	display: inline-flex;
 	align-items: center;
 	white-space: nowrap;
@@ -286,14 +296,18 @@ function getUrlVersion(url: string) {
 }
 
 .user-script {
-	border-bottom: 1px solid #bdbdbd;
+	border-bottom: 1px solid var(--theme-border-color);
 	border-radius: 4px;
 	padding: 8px 12px;
-	box-shadow: 0px 2px 4px 0px #d7d7d7;
+	box-shadow: 0 1px 2px var(--theme-shadow-color);
+	background-color: var(--theme-card-bg);
+	cursor: pointer;
+	transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .user-script-active {
-	box-shadow: 0px 2px 4px 0px #9ec6eb;
+	transform: translateY(-2px);
+	box-shadow: 0 6px 16px var(--theme-shadow-color-strong);
 }
 
 .user-script + .user-script {

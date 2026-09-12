@@ -1,13 +1,14 @@
 import { nextTick } from 'vue';
+import { Message } from '@arco-design/web-vue';
 import { store } from '../store';
-import { Process, processes } from '../utils/process';
+import { Process, processes, clearClosedPreview } from '../utils/process';
 import { resetSearch } from '../utils/entity';
 import { router } from '../route';
 import { Entity } from './entity';
 import { Folder, root } from './folder';
 import { BrowserOptions, BrowserOperateHistory, Tag, BrowserType, EntityOptions } from './interface';
 import { remote } from '../utils/remote';
-import { RawPlaywrightScript } from '../components/playwright-scripts';
+import { RawAutomationScript } from '../components/automation-scripts';
 import { child_process } from '../utils/node';
 
 export class Browser extends Entity implements BrowserOptions {
@@ -18,7 +19,7 @@ export class Browser extends Entity implements BrowserOptions {
 	cachePath: string;
 	histories: BrowserOperateHistory[];
 	parent: string;
-	playwrightScripts: RawPlaywrightScript[];
+	automationScripts: RawAutomationScript[];
 
 	constructor(opts: BrowserOptions & EntityOptions) {
 		super(opts);
@@ -28,7 +29,8 @@ export class Browser extends Entity implements BrowserOptions {
 		this.checked = opts.checked;
 		this.histories = opts.histories;
 		this.parent = opts.parent;
-		this.playwrightScripts = opts.playwrightScripts;
+		// 兼容旧字段 playwrightScripts
+		this.automationScripts = opts.automationScripts ?? (opts as any).playwrightScripts ?? [];
 		this.cachePath = opts.cachePath;
 	}
 
@@ -41,6 +43,14 @@ export class Browser extends Entity implements BrowserOptions {
 
 	/** 启动浏览器 */
 	async launch() {
+		// 浏览器增强开启时限制并发数量：运行中（启动中+已启动）达到上限直接拒绝启动
+		if (store.render.setting.browser.browserEnhancement) {
+			const runningCount = processes.filter((p) => p.status === 'launching' || p.status === 'launched').length;
+			if (runningCount >= 4) {
+				Message.error('浏览器增强已开启：最多同时运行 4 个浏览器，请先关闭其他浏览器，或在设置中关闭浏览器增强功能');
+				return;
+			}
+		}
 		const process = new Process(this, {
 			executablePath: store.render.setting.launchOptions.executablePath,
 			headless: false
@@ -63,13 +73,18 @@ export class Browser extends Entity implements BrowserOptions {
 	 * 适用于模拟更真实的浏览器环境
 	 */
 	async onlyLaunch() {
-		const extensionPaths: string[] = [];
-		// @ts-ignore
-		const paths: string[] = await remote.fs.call('readdirSync', store.paths.extensionsFolder);
-
-		for (const file of paths) {
-			extensionPaths.push(await remote.path.call('join', store.paths.extensionsFolder, file));
+		// 复用主进程 getExtensionPaths，确保与正常启动一致的过滤逻辑（仅含 manifest.json 的目录）
+		const extensionPaths: string[] = await remote.methods.call('getExtensionPaths', store.paths.extensionsFolder);
+		// 导航页扩展：新建标签页显示导航页（chrome_url_overrides.newtab），地址栏保持空白
+		// 未启用自定义导航页时跳过，浏览器保持默认空白导航页
+		if (store.render.setting.browser.bookmarkPage.enable !== false) {
+			const newtabExtension: string = await remote.methods.call('ensureNewTabExtension', `${this.cachePath}/ocs-newtab`, {
+				uid: this.uid,
+				port: store.server.port || 15319
+			});
+			extensionPaths.push(newtabExtension);
 		}
+		// 初始页面使用 about:blank，导航页由导航页扩展接管，避免地址栏暴露 localhost 地址
 		const cmd = ` "${store.render.setting.launchOptions.executablePath}" ${[
 			'--window-position=0,0',
 			'--no-first-run',
@@ -77,7 +92,7 @@ export class Browser extends Entity implements BrowserOptions {
 			`--user-data-dir="${this.cachePath}"`
 		]
 			.concat(formatExtensionArguments(extensionPaths))
-			.join(' ')} http://localhost:${store.server.port || 15319}/index.html#/bookmarks`;
+			.join(' ')} about:blank`;
 		console.log(cmd);
 		child_process.exec(cmd);
 	}
@@ -130,6 +145,9 @@ export class Browser extends Entity implements BrowserOptions {
 			await process.close();
 		}
 
+		// 清理浏览器关闭后保留的预览图
+		clearClosedPreview(this.uid);
+
 		const parent = Folder.from(this.parent);
 		Reflect.deleteProperty(parent?.children || {}, this.uid);
 
@@ -159,8 +177,9 @@ export class Browser extends Entity implements BrowserOptions {
 
 function formatExtensionArguments(extensionPaths: string[]) {
 	const paths = extensionPaths
-		.filter((f) => f.includes('.DS_Store') === false)
+		.filter((f) => !f.includes('.DS_Store'))
 		.map((p) => p.replace(/\\/g, '/'))
 		.join(',');
-	return [`--load-extension="${paths}"`];
+	// 与主进程保持一致：--disable-extensions-except 防止 Chrome 禁用侧载扩展
+	return paths.length === 0 ? [] : [`--load-extension=${paths}`, `--disable-extensions-except=${paths}`];
 }

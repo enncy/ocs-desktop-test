@@ -4,17 +4,18 @@
 			flex="160px"
 			class="desc-label"
 		>
-			{{ label }} :
+			<slot name="label">{{ label }}</slot>
 		</a-col>
 
 		<a-col
 			flex="auto"
-			class="d-inline-flex align-items-center"
+			class="d-inline-flex align-items-center justify-content-end"
 		>
 			<span
 				v-if="desc"
 				class="desc"
 				:class="textClass"
+				:style="textStyle"
 			>
 				{{ String(desc) }}
 			</span>
@@ -24,15 +25,18 @@
 </template>
 
 <script setup lang="ts">
-import { toRefs } from 'vue';
+import { CSSProperties, toRefs } from 'vue';
 interface DescriptionProps {
-	label: string;
+	label?: string;
 	desc?: any;
 	textClass?: any;
+	textStyle?: CSSProperties;
 }
 const props = withDefaults(defineProps<DescriptionProps>(), {
+	label: '',
 	desc: '',
-	textClass: ''
+	textClass: '',
+	textStyle: undefined
 });
 const { label, desc, textClass } = toRefs(props);
 </script>
@@ -41,7 +45,6 @@ const { label, desc, textClass } = toRefs(props);
 .desc {
 	word-wrap: break-word;
 	word-break: break-all;
-	font-size: 14px;
 }
 
 .desc-label {

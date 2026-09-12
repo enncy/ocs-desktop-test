@@ -1,14 +1,31 @@
 import { BrowserWindow, App, Dialog, WebContents } from 'electron';
 import { notify } from './notify';
-import type { RemoteMethods } from '@ocs-desktop/app';
+import type { RemoteMethods, LoggerCore } from '@ocs-desktop/common/web';
 import type fs from 'fs';
 import type os from 'os';
 import type path from 'path';
-import type crypto from 'crypto';
 import type Store from 'electron-store';
 import { electron } from './node';
-import type { OCSApi } from '@ocs-desktop/common';
 const { ipcRenderer } = electron;
+
+/** 远程异步调用默认超时时间（ms），主进程未回复时拒绝并清理监听，避免 Promise 永久 pending */
+const REMOTE_CALL_TIMEOUT = 30000;
+
+/**
+ * 将主进程序列化后的错误载荷还原为 Error 实例。
+ * 主进程通过 serializeError 把 Error 拍平为 { __error, name, message, stack } 跨 IPC 传输，
+ * 此处还原为带 stack 的 Error，便于上层 catch 与日志展示。
+ */
+function toError(payload: any): Error {
+	if (payload && typeof payload === 'object' && payload.__error) {
+		const err = new Error(payload.message || 'Unknown remote error');
+		err.name = payload.name || 'Error';
+		if (payload.stack) err.stack = payload.stack;
+		return err;
+	}
+	if (payload instanceof Error) return payload;
+	return new Error(String(payload));
+}
 
 /**
  * 注册渲染进程和主进程的远程通信
@@ -19,30 +36,50 @@ function registerRemote<T>(eventName: string) {
 	function sendSync(channel: string, ...args: any[]): any {
 		const res = ipcRenderer.sendSync(channel, ...args);
 		if (res?.error) {
-			console.log(res);
-			if (errorFilter(res.error)) {
+			const err = toError(res.error);
+			if (errorFilter(err.message)) {
 				return;
 			}
-			notify('remote 模块错误', res.error, 'remote', { copy: true, type: 'error' });
+			console.log(res);
+			notify('remote 模块错误', err, 'remote', { copy: true, type: 'error' });
 		}
 		return res;
 	}
 
 	function send(channel: string, args: any[]): Promise<any> {
 		return new Promise((resolve, reject) => {
-			ipcRenderer.once(args[0], (e: any, ...respondArgs) => {
-				if (respondArgs[0].error) {
-					console.log({ respondArgs, channel, args });
-					if (!errorFilter(respondArgs[0].error)) {
-						notify('remote 模块错误', respondArgs[0].error, 'remote', { copy: true, type: 'error' });
+			const respondChannel = args[0];
+			let settled = false;
+			const cleanup = () => {
+				clearTimeout(timer);
+				ipcRenderer.removeListener(respondChannel, onRespond);
+			};
+			const onRespond = (_e: any, payload: any) => {
+				if (settled) return;
+				settled = true;
+				cleanup();
+				if (payload?.error) {
+					const err = toError(payload.error);
+					if (!errorFilter(err.message)) {
+						console.log({ payload, channel, args });
+						notify('remote 模块错误', err, 'remote', { copy: true, type: 'error' });
 					}
-					reject(String(respondArgs[0].error));
+					reject(err);
 				} else {
-					resolve(respondArgs[0].data);
+					resolve(payload?.data);
 				}
-				// console.log(args[1], args[2], respondArgs[0].data);
-			});
-			ipcRenderer.send(channel, JSON.parse(JSON.stringify(args)));
+			};
+			// 超时兜底：主进程未回复（如 webContents 已销毁、reply 抛错）时拒绝并清理监听，避免 Promise 永久 pending
+			const timer = setTimeout(() => {
+				if (settled) return;
+				settled = true;
+				cleanup();
+				reject(new Error(`remote 调用超时：${channel}`));
+			}, REMOTE_CALL_TIMEOUT);
+			ipcRenderer.on(respondChannel, onRespond);
+			// 直接使用 Electron 原生 structured clone 传输，支持 Buffer/Date/Map/Set/undefined/循环引用
+			// （此前用 JSON.parse(JSON.stringify(args)) 会丢失这些类型，与同步路径行为不一致）
+			ipcRenderer.send(channel, args);
 		});
 	}
 
@@ -73,10 +110,10 @@ function registerRemote<T>(eventName: string) {
 		): T[K] extends { (...args: any[]): any } ? ReturnType<T[K]> : any {
 			const response = sendSync(eventName + '-call-sync', [property, ...args]);
 			if (response?.error) {
-				notify('remote 模块错误', response.error, 'remote', { copy: true, type: 'error' });
-				throw new Error(response.error);
+				// sendSync 已负责通知（含 errorFilter 判断），此处仅抛出还原后的 Error
+				throw toError(response.error);
 			}
-			return response.data;
+			return response?.data;
 		}
 	};
 }
@@ -91,10 +128,6 @@ export const remote = {
 	fs: registerRemote<typeof fs>('fs'),
 	path: registerRemote<typeof path>('path'),
 	os: registerRemote<typeof os>('os'),
-	crypto: registerRemote<typeof crypto>('crypto'),
-
-	// 公共 api
-	OCSApi: registerRemote<typeof OCSApi>('OCSApi'),
 
 	// 注册 window 通信
 	win: registerRemote<BrowserWindow>('win'),
@@ -108,12 +141,13 @@ export const remote = {
 	methods: registerRemote<RemoteMethods>('methods'),
 	// 日志
 	// eslint-disable-next-line no-undef
-	logger: registerRemote<Console>('logger')
+	logger: registerRemote<LoggerCore>('logger')
 };
 
-function errorFilter(str: string) {
+function errorFilter(message: string) {
 	//  operation not permitted, stat xxxxx CrashpadMetrics.pma ， 这个是 playwright 问题，暂时无需处理
-	if (String(str).includes('CrashpadMetrics')) {
+	if (String(message).includes('CrashpadMetrics')) {
 		return true;
 	}
+	return false;
 }

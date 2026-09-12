@@ -1,75 +1,35 @@
 <template>
 	<div
 		id="browsers"
-		class="h-100"
+		class="h-100 browsers-page"
 	>
-		<a-spin
-			class="w-100 h-100"
-			:loading="
-				!state.isCurrentBrowserSupported ||
-				state.supportedBrowser === undefined ||
-				state.supportedExtension === undefined ||
-				state.validUserScript === undefined
-			"
+		<!-- ====================== 浏览器列表内容部分 ======================-->
+
+		<!-- Banner 提示 -->
+		<NotificationBanner class="mb-2" />
+
+		<a-card
+			class="operations-card"
+			:bordered="true"
+			size="small"
 		>
-			<!-- ====================== 环境修复部分 ====================== -->
-
-			<template #icon>
-				<div class="shadow">
-					<a-alert
-						title="软件异常"
-						style="width: 600px"
-						class="rounded"
-						type="error"
-						show-icon
-					>
-						<div>{{ lang('browser_page_environment_error_notice', '软件环境存在问题，将会影响浏览器的正常启动') }}</div>
-						<template v-if="!state.isCurrentBrowserSupported">
-							<div>
-								原因：{{
-									lang('browser_page_environment_error_current_browser_not_supported', '当前浏览器版本不受支持')
-								}}
-							</div>
-						</template>
-						<template v-else-if="!state.supportedBrowser">
-							<div>原因：{{ lang('browser_page_environment_error_no_browser_detected', '未检测到可用的浏览器') }}</div>
-						</template>
-						<template v-else-if="!state.supportedExtension">
-							<div>原因：{{ lang('browser_page_environment_error_no_extension_detected', '未安装脚本管理器') }}</div>
-						</template>
-
-						<a-button
-							class="mt-2"
-							size="mini"
-							type="primary"
-							@click="state.setupVisible = true"
-						>
-							一键修复
-						</a-button>
-					</a-alert>
+			<div class="operations">
+				<!-- 路径栏 / 统计栏 -->
+				<FileBreadcrumb
+					v-if="currentSearchedEntities === undefined && currentFolder.type !== 'root'"
+					:key="currentFolder.uid"
+				></FileBreadcrumb>
+				<div
+					v-else-if="currentSearchedEntities === undefined && currentFolder.type === 'root'"
+					class="stats-bar"
+				>
+					<span><icon-desktop /> {{ stats.browsers }}</span>
+					<span><icon-code /> {{ stats.scripts }}</span>
+					<span><icon-folder /> {{ stats.folders }}</span>
+					<span><icon-tag /> {{ stats.tags }}</span>
 				</div>
-			</template>
-
-			<Setup
-				v-if="state.setupVisible"
-				v-model:visible="state.setupVisible"
-				confirm-text="环境修复"
-				cancel-text="稍后再说"
-				:create-new-browser="false"
-				@close="
-					async () => {
-						state.setupVisible = false;
-						await updateEnvironmentDetect();
-					}
-				"
-			></Setup>
-
-			<!-- ====================== 浏览器列表内容部分 ======================-->
-
-			<div class="col-12 p-1 ps-2 pe-2 operations">
-				<!-- 路径栏 -->
-				<!-- 当处于搜索状态时隐藏 -->
-				<FileBreadcrumb v-show="currentSearchedEntities === undefined"></FileBreadcrumb>
+				<!-- 撑开间距，将搜索和筛选推到最右边 -->
+				<div class="flex-grow-1"></div>
 				<!-- 文件筛选 -->
 				<FileFilters></FileFilters>
 
@@ -86,52 +46,39 @@
 
 			<!-- 文件操作 -->
 			<FileMultipleOperators></FileMultipleOperators>
+		</a-card>
 
-			<template v-if="currentEntities.length === 0">
-				<div
-					class="d-flex"
-					style="height: 50vh"
-				>
-					<a-empty class="p-3 m-auto">
-						<div class="mb-3">暂无浏览器</div>
+		<EnvironmentAlert class="p-2"> </EnvironmentAlert>
 
-						<a-space>
-							<a-button
-								type="outline"
-								size="mini"
-								@click="about"
-							>
-								<Icon type="book">点击查看使用教程</Icon>
-							</a-button>
+		<template v-if="currentSearchedEntities !== undefined && currentSearchedEntities.length === 0">
+			<a-empty
+				class="p-3"
+				description="暂无浏览器搜索结果"
+			></a-empty>
+		</template>
 
-							<a-button
-								type="outline"
-								size="mini"
-								@click="newBrowser()"
-							>
-								<Icon type="web">新建浏览器</Icon>
-							</a-button>
-						</a-space>
-					</a-empty>
-				</div>
-			</template>
-			<template v-else-if="currentSearchedEntities !== undefined && currentSearchedEntities.length === 0">
-				<a-empty
-					class="p-3"
-					description="暂无浏览器搜索结果"
-				></a-empty>
-			</template>
-
-			<div
-				v-else
-				class="col-12 p-2 pt-1 entities-container"
+		<div class="entities-wrapper">
+			<Transition
+				name="entities-slide"
+				appear
 			>
-				<!-- 显示浏览器以及文件夹列表 -->
-				<div class="entities">
-					<BrowserList :entities="currentSearchedEntities ? currentSearchedEntities : currentEntities"></BrowserList>
+				<div
+					:key="currentFolder.uid"
+					class="entities-container"
+				>
+					<!-- 显示浏览器以及文件夹列表 -->
+					<div class="entities">
+						<BrowserList
+							:entities="currentSearchedEntities ? currentSearchedEntities : currentEntities || []"
+						></BrowserList>
+					</div>
+					<!-- 右键菜单提示 -->
+					<div class="text-end">
+						<RightClickOpenMenuTip />
+					</div>
 				</div>
-			</div>
-		</a-spin>
+			</Transition>
+		</div>
 	</div>
 </template>
 
@@ -140,52 +87,48 @@ import Icon from '../../components/Icon.vue';
 import { resetSearch } from '../../utils/entity';
 import FileFilters from '../../components/browsers/FileFilters.vue';
 import FileBreadcrumb from '../../components/browsers/FileBreadcrumb.vue';
-import { currentEntities, currentSearchedEntities } from '../../fs';
+import { currentEntities, currentSearchedEntities, currentFolder } from '../../fs';
+import { root } from '../../fs/folder';
 import FileMultipleOperators from '../../components/browsers/FileMultipleOperators.vue';
-import { about } from '../../utils';
 import BrowserList from '../../components/BrowserList.vue';
-import { newBrowser } from '../../utils/browser';
-import { Environment } from '../../utils//environment';
-import { reactive, onActivated, watch } from 'vue';
-import type { ValidBrowser } from '../../../../common/lib/src/interface';
-import Setup from '../../components/Setup.vue';
-import { lang, store } from '../../store';
+import { computed } from 'vue';
+import NotificationBanner from '../../components/NotificationBanner.vue';
+import { IconDesktop, IconTag, IconCode, IconFolder } from '@arco-design/web-vue/es/icon';
+import { store } from '../../store';
+import RightClickOpenMenuTip from '../../components/RightClickOpenMenuTip.vue';
+import EnvironmentAlert from '../../components/EnvironmentAlert.vue';
 
-const state = reactive({
-	isCurrentBrowserSupported: true,
-	supportedBrowser: null as ValidBrowser | undefined | null,
-	supportedExtension: null as any | undefined | null,
-	validUserScript: null as any | undefined | null,
-	setupVisible: false
-});
+const stats = computed(() => {
+	const r = root();
+	const allBrowsers = r.findAll((e) => e.type === 'browser');
+	const allFolders = r.findAll((e) => e.type === 'folder');
 
-watch(
-	() => [store.render.state.setup, state.setupVisible],
-	() => {
-		updateEnvironmentDetect();
+	const tagSet = new Set<string>();
+	for (const b of allBrowsers) {
+		if (b.type === 'browser') {
+			b.tags.forEach((t) => tagSet.add(t.name));
+		}
 	}
-);
-
-onActivated(() => {
-	updateEnvironmentDetect();
+	return {
+		browsers: allBrowsers.length,
+		folders: allFolders.length,
+		tags: tagSet.size,
+		scripts: store.render.scripts.length
+	};
 });
-
-async function updateEnvironmentDetect() {
-	await Environment.init();
-	const [isCurrentBrowserSupported, supportedBrowser, supportedExtension, validUserScript] = await Promise.all([
-		Environment.isCurrentBrowserSupported(),
-		Environment.getSupportedBrowser(),
-		Environment.getSupportedExtension(),
-		Environment.getValidUserScript()
-	]);
-	state.isCurrentBrowserSupported = isCurrentBrowserSupported;
-	state.supportedBrowser = supportedBrowser;
-	state.supportedExtension = supportedExtension;
-	state.validUserScript = validUserScript;
-}
 </script>
 
 <style scoped lang="less">
+.browsers-page {
+	display: flex;
+	flex-direction: column;
+}
+
+.operations-card {
+	flex-shrink: 0;
+	margin: 6px 8px 0;
+}
+
 .operations {
 	display: flex;
 	align-items: center;
@@ -195,13 +138,59 @@ async function updateEnvironmentDetect() {
 	overflow-y: hidden;
 }
 
+.entities-wrapper {
+	flex: 1;
+	min-height: 0;
+	position: relative;
+}
+
 .entities-container {
-	height: calc(100% - 80px);
-	padding-bottom: 0px !important;
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	display: flex;
+	flex-direction: column;
 }
 
 .entities {
-	height: 100%;
+	flex: 1;
+	min-height: 0;
 	overflow: overlay;
+
+	padding: 4px 12px 0;
+}
+
+.stats-bar {
+	display: flex;
+	align-items: center;
+	gap: 16px;
+	font-size: 12px;
+	color: #86909c;
+	white-space: nowrap;
+	user-select: none;
+
+	span {
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+	}
+}
+
+/* 浏览器列表过渡动画 */
+.entities-slide-enter-active {
+	transition: opacity 0.2s ease 0.2s, transform 0.2s ease 0.2s;
+}
+.entities-slide-leave-active {
+	transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.entities-slide-enter-from {
+	opacity: 0;
+	transform: translateY(8px);
+}
+.entities-slide-leave-to {
+	opacity: 0;
+	transform: translateY(8px);
 }
 </style>

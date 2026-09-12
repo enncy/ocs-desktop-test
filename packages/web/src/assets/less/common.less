@@ -9,9 +9,9 @@ html,
 	max-height: 100%;
 	min-width: 500px;
 	min-height: 300px;
+	--title-height: 32px;
 }
 
-/** 兼容 win11 以下的软件不会自动带有阴影和边框 */
 html.window-frame {
 	border: 1px solid #e1e1e1;
 	overflow: hidden;
@@ -19,7 +19,8 @@ html.window-frame {
 }
 
 #app {
-	font-family: Avenir, Helvetica, Arial, sans-serif;
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', 'Helvetica Neue',
+		Helvetica, Arial, sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
@@ -30,20 +31,71 @@ html.window-frame {
 
 /* 设置滚动条的样式 */
 ::-webkit-scrollbar {
-	width: 10px;
-	height: 6px;
+	width: 12px;
+	height: 12px;
 }
 
 /* 滚动槽 */
 ::-webkit-scrollbar-track {
-	background: #ffffff00;
+	background: rgb(235, 235, 235);
 }
 
 /* 滚动条滑块 */
 ::-webkit-scrollbar-thumb {
-	border-radius: 2px;
-	background: rgba(0, 0, 0, 0.1);
-	box-shadow: inset006pxrgba(0, 0, 0, 0.3);
+	border-radius: 7px;
+	background: rgb(184, 184, 184);
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: rgb(143, 143, 143);
+}
+
+/* 滚动条箭头按钮 */
+@scrollbar-arrow-up: url('../img/scrollbar/up.svg');
+@scrollbar-arrow-down: url('../img/scrollbar/down.svg');
+@scrollbar-arrow-left: url('../img/scrollbar/left.svg');
+@scrollbar-arrow-right: url('../img/scrollbar/right.svg');
+
+::-webkit-scrollbar-button {
+	display: none;
+}
+
+::-webkit-scrollbar-button:vertical:start:decrement,
+::-webkit-scrollbar-button:vertical:end:increment,
+::-webkit-scrollbar-button:horizontal:start:decrement,
+::-webkit-scrollbar-button:horizontal:end:increment {
+	display: block;
+	height: 18px;
+	width: 18px;
+	background: rgb(209, 209, 209) no-repeat center center;
+	background-size: 14px;
+}
+
+::-webkit-scrollbar-button:vertical:start:decrement:hover,
+::-webkit-scrollbar-button:vertical:end:increment:hover,
+::-webkit-scrollbar-button:horizontal:start:decrement:hover,
+::-webkit-scrollbar-button:horizontal:end:increment:hover {
+	background-color: rgba(214, 214, 214, 0.1);
+}
+
+::-webkit-scrollbar-button:vertical:start:decrement {
+	background-image: @scrollbar-arrow-up;
+}
+
+::-webkit-scrollbar-button:vertical:end:increment {
+	background-image: @scrollbar-arrow-down;
+}
+
+::-webkit-scrollbar-button:horizontal:start:decrement {
+	background-image: @scrollbar-arrow-left;
+}
+
+::-webkit-scrollbar-button:horizontal:end:increment {
+	background-image: @scrollbar-arrow-right;
+}
+
+::-webkit-scrollbar-corner {
+	background: transparent;
 }
 
 /** 通知栏样式 */
@@ -85,10 +137,10 @@ html.window-frame {
 
 code {
 	margin: 0px 2px !important;
-	padding: 2px 4px !important;
-	font-size: 90% !important;
-	color: #323030;
-	background-color: #eaeaea;
+	padding: 4px 6px !important;
+	font-size: 12px !important;
+	color: #d63384;
+	background-color: rgb(242, 242, 242);
 	border-radius: 4px;
 }
 
@@ -144,10 +196,51 @@ body[arco-theme='dark'] {
 	color: @night-color;
 	background-color: @night-bg-color;
 
-	/** browser-panel toc */
-	.bp-toc {
-		color: @night-color;
-		background-color: @night-bg-color;
+	/* 暗色模式滚动槽 */
+	::-webkit-scrollbar-track {
+		background: rgba(255, 255, 255, 0.288);
+	}
+
+	/* 暗色模式滚动条滑块 */
+	::-webkit-scrollbar-thumb {
+		background: rgba(255, 255, 255, 0.589);
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background: rgba(255, 255, 255, 0.87);
+	}
+
+	/* 暗色模式滚动条箭头按钮 - 通过 filter 反色适配暗色 */
+	::-webkit-scrollbar-button:vertical:start:decrement,
+	::-webkit-scrollbar-button:vertical:end:increment,
+	::-webkit-scrollbar-button:horizontal:start:decrement,
+	::-webkit-scrollbar-button:horizontal:end:increment {
+		background: rgba(255, 255, 255, 0.671) no-repeat center center;
+		background-size: 14px;
+		filter: invert(1);
+	}
+
+	::-webkit-scrollbar-button:vertical:start:decrement:hover,
+	::-webkit-scrollbar-button:vertical:end:increment:hover,
+	::-webkit-scrollbar-button:horizontal:start:decrement:hover,
+	::-webkit-scrollbar-button:horizontal:end:increment:hover {
+		background-color: rgba(255, 255, 255, 0.342);
+	}
+
+	::-webkit-scrollbar-button:vertical:start:decrement {
+		background-image: @scrollbar-arrow-up;
+	}
+
+	::-webkit-scrollbar-button:vertical:end:increment {
+		background-image: @scrollbar-arrow-down;
+	}
+
+	::-webkit-scrollbar-button:horizontal:start:decrement {
+		background-image: @scrollbar-arrow-left;
+	}
+
+	::-webkit-scrollbar-button:horizontal:end:increment {
+		background-image: @scrollbar-arrow-right;
 	}
 
 	.text-secondary {
@@ -164,16 +257,6 @@ body[arco-theme='dark'] {
 		ul li {
 			color: @night-color;
 		}
-	}
-
-	/* 滚动槽 */
-	::-webkit-scrollbar-track {
-		background: #9693933a;
-	}
-
-	/* 滚动条滑块 */
-	::-webkit-scrollbar-thumb {
-		background: #c9bfbf98;
 	}
 
 	a,
@@ -286,10 +369,16 @@ body[arco-theme='dark'] {
 /** 防止被标题栏遮挡 */
 .arco-drawer-container,
 .arco-modal-container {
-	top: 32px;
+	top: var(--title-height) !important;
 }
 
 .arco-notification-list,
 .arco-message-list {
 	top: 52px;
+}
+
+.user-script-search-modal {
+	max-width: 1200px;
+	min-width: 600px;
+	overflow: auto;
 }

@@ -21,7 +21,7 @@ export const config = reactive({
 		{
 			name: 'index',
 			path: '/',
-			redirect: '/browsers',
+			redirect: '/simple',
 			component: shallowRef(page),
 			children: [
 				{
@@ -40,15 +40,6 @@ export const config = reactive({
 					meta: {
 						icon: 'code',
 						title: '脚本列表'
-					}
-				},
-				{
-					name: 'resources',
-					path: 'resources',
-					component: () => import('@/pages/resources/index.vue'),
-					meta: {
-						icon: 'widgets',
-						title: '应用中心'
 					}
 				},
 				{
@@ -81,6 +72,16 @@ export const config = reactive({
 				/** 隐藏在左侧菜单栏 */
 				hideInMenu: true
 			}
+		},
+		{
+			name: 'simple',
+			path: '/simple',
+			component: () => import('@/pages/simple/index.vue'),
+			meta: {
+				icon: 'view_list',
+				title: '简洁模式',
+				hideInMenu: true
+			}
 		}
 	] as RouteRecordRaw[],
 	/** 主题预设 */
@@ -99,7 +100,11 @@ export const config = reactive({
 					{
 						url: `https://scriptcat.org/users/${info.user_id}`,
 						name: info.username,
-						avatar: info.avatar ? `https://scriptcat.org${info.avatar}` : undefined
+						avatar: info.avatar
+							? info.avatar.startsWith('/')
+								? `https://scriptcat.org${info.avatar}`
+								: info.avatar
+							: undefined
 					}
 				];
 				script.description = info.description;

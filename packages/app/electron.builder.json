@@ -7,50 +7,45 @@
 	},
 	"productName": "OCS Desktop",
 	"asar": false,
+	"directories": {
+		"output": "../../releases"
+	},
+	"compression": "maximum",
 	"copyright": "Copyright © 2021 ${author}",
+	"files": [
+		"out/**/*",
+		"public/favicon.png",
+		"public/favicon.icns",
+		"public/favicon.ico",
+		"package.json",
+		"node_modules/**/*",
+		"!**/*.map",
+		"!node_modules/xlsx/dist/{shim.min,xlsx.core.min,xlsx.extendscript,xlsx.full.min,xlsx,xlsx.min,xlsx.mini.min}.js"
+	],
 	"nsis": {
 		"oneClick": true
+	},
+	"electronLanguages": ["en-US", "en-GB", "zh-CN"],
+	"publish": {
+		"provider": "generic",
+		"url": "https://cdn.ocsjs.com/app/electron-updater/"
 	},
 	"win": {
 		"icon": "public/favicon.png",
 		"artifactName": "ocs-${version}-setup-${os}-${arch}.${ext}",
 		"target": [
 			{
-				"target": "nsis",
-				"arch": ["x64", "ia32", "arm64"]
-			},
-			{
-				"target": "zip",
-				"arch": ["x64", "ia32", "arm64"]
+				"target": "nsis"
 			}
 		],
-		"requestedExecutionLevel": "highestAvailable",
-		"extraResources": [
-			{
-				"from": "../../bin/",
-				"to": "bin",
-				"filter": ["**/*.zip"]
-			}
-		]
+		"requestedExecutionLevel": "highestAvailable"
 	},
 	"mac": {
 		"icon": "public/favicon.icns",
 		"artifactName": "ocs-${version}-setup-${os}-${arch}.${ext}",
 		"target": [
 			{
-				"target": "zip",
-				"arch": ["x64", "arm64"]
-			},
-			{
-				"target": "dmg",
-				"arch": ["x64", "arm64"]
-			}
-		],
-		"extraResources": [
-			{
-				"from": "../../bin/",
-				"to": "bin",
-				"filter": ["**/*.zip"]
+				"target": "dmg"
 			}
 		]
 	},
@@ -59,15 +54,7 @@
 		"artifactName": "ocs-${version}-setup-${os}-${arch}.${ext}",
 		"target": [
 			{
-				"target": "AppImage",
-				"arch": ["x64", "arm64"]
-			}
-		],
-		"extraResources": [
-			{
-				"from": "../../bin/",
-				"to": "bin",
-				"filter": ["**/*.zip"]
+				"target": "AppImage"
 			}
 		]
 	}

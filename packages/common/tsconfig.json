@@ -2,11 +2,13 @@
 	"compilerOptions": {
 		"target": "es5",
 		"module": "commonjs",
+		"lib": ["es2018", "dom"],
 		"strict": true,
 		"outDir": "./lib",
 		"esModuleInterop": true,
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
 		"declaration": true
-	}
+	},
+	"exclude": ["node_modules", "lib", "tests", "**/*.test.ts"]
 }

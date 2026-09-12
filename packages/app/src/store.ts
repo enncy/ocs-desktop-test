@@ -1,10 +1,12 @@
-import { app, safeStorage } from 'electron';
+import { app } from 'electron';
 import path from 'path';
 import Store from 'electron-store';
+import type { AppStore } from '@ocs-desktop/common';
+import { getDecryptedRenderData } from './crypto';
 
 // IO操作只能在 app.getPath('userData') 下进行，否则会有权限问题。
 
-export const OriginalAppStore = {
+export const OriginalAppStore: AppStore = {
 	name: app.getName(),
 	version: app.getVersion(),
 	/** 路径数据 */
@@ -21,21 +23,27 @@ export const OriginalAppStore = {
 		/** 加载拓展路径 */
 		extensionsFolder: path.resolve(app.getPath('userData'), './downloads/extensions')
 	},
-	/** 软件设置 */
-	app: {
-		video_frame_rate: 1,
-		data_encryption: false
-	},
 	/** 窗口设置 */
 	window: {
 		/** 开机自启 */
 		alwaysOnTop: false,
-		autoLaunch: false
+		autoLaunch: false,
+		/** 后台运行：关闭窗口时自动隐藏到系统托盘，浏览器保持运行（默认关闭） */
+		hideToTrayOnClose: false
 	},
 	/** 本地服务器数据 */
 	server: {
 		port: 15319,
 		authToken: ''
+	},
+	/** 更新设置（测试/调试用途，正式用户留空即为线上默认） */
+	updater: {
+		/** 自定义更新源目录（latest.yml 所在 URL），留空使用构建时 publish.url 默认源 */
+		feedUrl: '',
+		/** 自定义软件信息接口 URL（更新日志来源），留空使用默认 ocs-app-infos.json */
+		infosUrl: '',
+		/** 允许降级/同版本覆盖安装（重复测试用） */
+		allowDowngrade: false
 	},
 	/** 渲染进程数据 */
 	render: {} as { [x: string]: any }
@@ -51,9 +59,4 @@ export const store = new Store<typeof OriginalAppStore>();
 /**
  * 获取解密后的渲染进程数据
  */
-export function getDecryptedRenderData(): (typeof OriginalAppStore)['render'] {
-	if (typeof store?.store?.render === 'string') {
-		return JSON.parse(safeStorage.decryptString(Buffer.from(store?.store?.render, 'base64')));
-	}
-	return store?.store?.render || {};
-}
+export { getDecryptedRenderData };

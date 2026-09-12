@@ -14,10 +14,7 @@
 			"dom"
 		],
 		"skipLibCheck": true,
-		"outDir": "./lib",
-		"typeRoots": [
-			"./src/env.d.ts"
-		]
+		"outDir": "./lib"
 	},
 	"exclude": [
 		"app/**/*"

@@ -2,12 +2,18 @@
 	<div
 		v-if="instance"
 		class="entity align-items-center d-flex"
-		:class="{ active: store.render.browser.currentBrowserUid === instance.uid }"
+		:class="{
+			active: store.render.browser.currentBrowserUid === instance.uid,
+			'is-context': contextUid === instance.uid,
+			'is-dragging': isDragging,
+			'drop-before': isDropTarget && dropPosition === 'before',
+			'drop-after': isDropTarget && dropPosition === 'after',
+			'drop-inside': isDropTarget && dropPosition === 'inside'
+		}"
+		:data-uid="instance.uid"
+		@click="instance?.select()"
 	>
-		<div
-			style="cursor: pointer; flex: auto"
-			@click="instance?.select()"
-		>
+		<div style="cursor: pointer; flex: auto">
 			<div
 				style="cursor: pointer; flex: auto"
 				class="text-secondary entity-name align-items-center d-flex"
@@ -30,9 +36,11 @@
 				</span>
 
 				<!-- 名字 -->
-				<a-dropdown
-					:trigger="['hover']"
-					position="rt"
+
+				<a-tooltip
+					:content="
+						dragCount > 0 ? `正在拖入${dragCount}个文件` : instance.type === 'folder' ? '返回上一级' : '右键打开菜单'
+					"
 				>
 					<span class="ms-2">
 						<a-input
@@ -47,16 +55,11 @@
 							{{ instance.name }}
 						</span>
 					</span>
-					<template #content>
-						<a-doption @click="instance && (instance.renaming = true)">
-							<Icon type="text_format">重命名</Icon>
-						</a-doption>
-					</template>
-				</a-dropdown>
 
-				<div style="flex: 1 1 auto">
-					<slot name="suffix"></slot>
-				</div>
+					<div style="flex: 1 1 auto">
+						<slot name="suffix"></slot>
+					</div>
+				</a-tooltip>
 			</div>
 
 			<div
@@ -73,6 +76,7 @@
 			v-if="slots.actions"
 			style="flex: 0 0 auto"
 			class="text-secondary text-nowrap d-flex justify-content-end ps-1 pe-2"
+			@click.stop
 		>
 			<a-space
 				:size="0"
@@ -97,21 +101,45 @@ import { store } from '../store';
 import { FolderOptions, BrowserOptions, FolderType } from '../fs/interface';
 import { Browser } from '../fs/browser';
 import { Folder } from '../fs/folder';
-import Icon from './Icon.vue';
+import type { DropPosition } from '../composables/useEntityDrag';
+import { Entity } from '../fs/entity';
+import { contextUid } from '../fs';
 
 const slots = useSlots();
 
 const props = withDefaults(
 	defineProps<{
 		entity: BrowserOptions | FolderOptions<FolderType, Browser | Folder>;
+		isDragging?: boolean;
+		isDropTarget?: boolean;
+		dropPosition?: DropPosition;
+		dragCount?: number;
 	}>(),
-	{}
+	{
+		isDragging: false,
+		isDropTarget: false,
+		dropPosition: null,
+		dragCount: 0
+	}
 );
 
 const renameInput = ref<any>();
 const renameValue = ref(props.entity.name);
 
-const instance = props.entity.type === 'browser' ? Browser.from(props.entity.uid) : Folder.from(props.entity.uid);
+const instance: Entity =
+	props.entity.uid === '__parent_back__'
+		? ({
+				type: 'folder',
+				uid: '__parent_back__',
+				name: '...',
+				select: () => {},
+				rename: () => {},
+				remove: () => {},
+				location: () => {}
+		  } as any)
+		: props.entity.type === 'browser'
+		? Browser.from(props.entity.uid)
+		: Folder.from(props.entity.uid);
 
 watch(
 	() => props.entity.renaming,
@@ -167,9 +195,31 @@ function active() {
 	&.active {
 		background-color: #3577db25;
 	}
-}
+	// 右键选中样式
+	&.is-context {
+		background-color: #e8f3ff;
+		border-radius: 4px;
+	}
 
-.arco-space-item > span {
-	cursor: pointer;
+	// 拖拽中的项目样式
+	&.is-dragging {
+		opacity: 0.4;
+	}
+
+	// 放置位置指示线 - 上方
+	&.drop-before {
+		box-shadow: inset 0 2px 0 0 #3577db;
+	}
+
+	// 放置位置指示线 - 下方
+	&.drop-after {
+		box-shadow: inset 0 -2px 0 0 #3577db;
+	}
+
+	// 文件夹接收拖入样式
+	&.drop-inside {
+		background-color: rgba(53, 119, 219, 0.1);
+		border-radius: 4px;
+	}
 }
 </style>

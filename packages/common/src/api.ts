@@ -39,9 +39,18 @@ export interface NotifyResource {
 	content: string[];
 }
 
+/** Banner 通知 */
+export interface BannerResource {
+	title: string;
+	content: string;
+	type?: 'info' | 'warning' | 'success' | 'error';
+}
+
 /** 版本更新信息 */
 export interface UpdateInformationResource {
 	tag: string;
+	/** markdown 格式的更新日志（由主进程从 CHANGELOG.md 按版本区间截取，3.0+ 弹窗使用） */
+	markdown?: string;
 	description: Record<'feat' | 'fix' | 'other', string[]>;
 	url: string;
 	app_downloads?: {
@@ -69,12 +78,19 @@ export interface Infos {
 	resourceGroups: ResourceGroup[];
 	bookmark: BookmarkResource[];
 	notify: NotifyResource[];
+	banners: BannerResource[];
 	versions: UpdateInformationResource[];
 }
 
 export class OCSApi {
-	static async getInfos(): Promise<Infos> {
-		const { data } = await axios.get('https://cdn.ocsjs.com/api/ocs-app-infos.json?t=' + Date.now());
+	/** 默认软件信息接口（更新日志/资源/公告等），可通过 updater.infosUrl 设置覆盖以切换测试环境 */
+	static DEFAULT_INFOS_URL = 'https://cdn.ocsjs.com/api/ocs-app-infos.json';
+
+	static async getInfos(url?: string): Promise<Infos> {
+		const { data } = await axios.get((url || OCSApi.DEFAULT_INFOS_URL) + '?t=' + Date.now(), {
+			// 必须设置超时：否则网络异常时 Promise 永不 settle，初始化弹窗会一直卡在加载中
+			timeout: 15_000
+		});
 		return data;
 	}
 }

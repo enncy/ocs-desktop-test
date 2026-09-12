@@ -37,6 +37,11 @@ export function initStore() {
 		logger.log('store', store.store);
 	}
 
+	// 同步存储版本号为当前应用版本：
+	// 上面的 defaultsDeep 只补缺不覆盖，version 会永远停留在首次写入的旧值，
+	// 导致 config.json 与「设置-更新设置-当前版本」显示历史版本号
+	store.set('version', app.getVersion());
+
 	/**
 	 * 如果浏览器缓存为空，则初始化，如果不为空那就是用户自己设置了
 	 */

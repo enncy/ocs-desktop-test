@@ -1,0 +1,7 @@
+{
+	"name": "ocs-upgrader",
+	"version": "2.11.9",
+	"description": "OCS Desktop 强制升级引导器：旧客户端经 zip 热更新替换 resources/app 后变成本程序，引导用户安装最新版",
+	"main": "main.js",
+	"private": true
+}

@@ -21,8 +21,14 @@ export const Environment = {
 	async getRemoteInfos() {
 		if (!this.infos.value) {
 			this.loading.value = true;
-			this.infos.value = await getRemoteInfos();
-			this.loading.value = false;
+			try {
+				this.infos.value = await getRemoteInfos();
+			} catch (err) {
+				// 网络异常时保持 infos 为空，由调用方展示错误与重试入口
+				console.error('获取远程资源信息失败：', err);
+			} finally {
+				this.loading.value = false;
+			}
 		}
 		return this.infos.value;
 	},
@@ -69,7 +75,7 @@ export const Environment = {
 
 	async getExtensions() {
 		const infos = await this.getRemoteInfos();
-		const extensions = (infos.resourceGroups.find((group) => group.name === 'extensions')?.files || []) as Extension[];
+		const extensions = (infos?.resourceGroups.find((group) => group.name === 'extensions')?.files || []) as Extension[];
 		for (const extension of extensions) {
 			extension.installed = await resourceLoader.isZipFileExists('extensions', extension);
 		}
@@ -79,32 +85,37 @@ export const Environment = {
 	async getSupportedExtension() {
 		const infos = await this.getRemoteInfos();
 		// 获取最新的拓展和用户脚本信息
-		const extensions = (infos.resourceGroups.find((group) => group.name === 'extensions')?.files || []) as Extension[];
+		const extensions = (infos?.resourceGroups.find((group) => group.name === 'extensions')?.files || []) as Extension[];
 		for (const extension of extensions) {
 			extension.installed = await resourceLoader.isZipFileExists('extensions', extension);
 		}
-		const installed_extension = extensions.find((e) => e.installed);
-		if (!installed_extension) return;
-
-		const manifest = JSON.parse(
-			String(
-				await remote.fs.call(
-					'readFileSync',
-					await remote.path.call(
-						'join',
-						await resourceLoader.getUnzippedPath('extensions', installed_extension),
-						'manifest.json'
-					),
-					'utf-8'
-				)
-			)
-		);
-		// 检查是否为 MV2 拓展，如果是则报错
-		if (_get(manifest, 'manifest_version', 2) < 3) {
-			return undefined;
+		// 遍历所有"文件夹存在"的候选拓展：文件夹存在但 manifest 缺失/损坏/版本过低时继续检查下一个，
+		// 避免安装中断留下的空目录（如篡改猴残留）遮蔽真正可用的脚本管理器（如脚本猫）
+		for (const installed_extension of extensions.filter((e) => e.installed)) {
+			let manifest: any;
+			try {
+				const manifestPath = await remote.path.call(
+					'join',
+					await resourceLoader.getUnzippedPath('extensions', installed_extension),
+					'manifest.json'
+				);
+				// 先用 existsSync 探测：zip 已下载但未解压（或解压不完整）时 manifest.json 不存在，
+				// 直接 readFileSync 会经 remote 层弹出「remote 模块错误」通知，属于误报
+				if (!remote.fs.callSync('existsSync', manifestPath)) {
+					continue;
+				}
+				manifest = JSON.parse(String(await remote.fs.call('readFileSync', manifestPath, 'utf-8')));
+			} catch {
+				// manifest.json 不存在或解析失败（如 OCR 等非扩展文件夹），跳过该候选
+				continue;
+			}
+			// 跳过 MV2 拓展
+			if (_get(manifest, 'manifest_version', 2) < 3) {
+				continue;
+			}
+			return installed_extension;
 		}
-
-		return installed_extension;
+		return undefined;
 	},
 
 	async getValidUserScript() {

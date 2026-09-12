@@ -20,7 +20,7 @@
 			<template #content>
 				<a-doption style="width: 200px"> </a-doption>
 
-				<a-doption @click="store.render.state.setup = true"> <Icon type="settings">初始化设置</Icon> </a-doption>
+				<a-doption @click="openSetup"> <Icon type="settings">初始化设置</Icon> </a-doption>
 				<a-doption
 					class="border-bottom"
 					@click="checkBrowserCaches"
@@ -40,19 +40,6 @@
 				<a-doption @click="openDevTools"> <Icon type="code">开发者工具</Icon> </a-doption>
 			</template>
 		</a-dropdown>
-
-		<CommonEditActionDropdown>
-			<span
-				class="title-item"
-				@mousedown="
-					(e) => {
-						e.preventDefault();
-					}
-				"
-			>
-				编辑
-			</span>
-		</CommonEditActionDropdown>
 
 		<a-dropdown
 			class="tittle-dropdown"
@@ -79,10 +66,13 @@
 				</TitleLink>
 			</template>
 		</a-dropdown>
+
+		<StatusBar />
 	</div>
 </template>
 
 <script setup lang="ts">
+import { h } from 'vue';
 import { fetchRemoteNotify, date, about, getRemoteInfos } from '../utils';
 import { remote } from '../utils/remote';
 import TitleLink from './TitleLink.vue';
@@ -91,14 +81,19 @@ import { store } from '../store/index';
 import { electron } from '../utils/node';
 import { currentBrowser, currentFolder, currentEntities, currentSearchedEntities } from '../fs/index';
 import { Folder, root } from '../fs/folder';
-import { h } from 'vue';
 import { FolderOptions, FolderType } from '../fs/interface';
 import { Browser } from '../fs/browser';
 import { checkBrowserCaches } from '../utils/browser';
-import CommonEditActionDropdown from './CommonEditActionDropdown.vue';
 import Icon from './Icon.vue';
+import StatusBar from './StatusBar.vue';
 
 const { shell } = electron;
+
+// 打开初始化设置弹窗（手动触发时跳过「欢迎使用」引导，直接进入初始化）
+function openSetup() {
+	store.render.state.welcome = false;
+	store.render.state.setup = true;
+}
 
 // 重启
 function relaunch() {
@@ -130,19 +125,32 @@ function importData() {
 					const text = await remote.fs.call('readFileSync', filePaths[0], { encoding: 'utf8' });
 					const _store: typeof store = JSON.parse(text.toString());
 
+					// 如果 render 是加密字符串，先解密为明文再导入
+					if (typeof _store.render === 'string') {
+						const renderStr = _store.render as string;
+						const data = JSON.parse(remote.methods.callSync('decryptRenderString' as any, renderStr) as string);
+						(_store as any).render = data;
+					}
+
 					const root = _store.render.browser.root;
 					// 遍历文件夹，将每个浏览器的缓存路径解析为用户数据目录下的文件夹
 					const folders: FolderOptions<any, Folder<FolderType> | Browser>[] = [root];
 					while (folders.length) {
 						const folder = folders.shift();
-						if (Object.keys(folder?.children || {}).length) {
-							for (const key in folder?.children) {
-								if (Object.prototype.hasOwnProperty.call(folder?.children, key)) {
-									const entity = folder?.children[key];
+						if (!folder) continue;
+						if (Object.keys(folder.children || {}).length) {
+							for (const key in folder.children) {
+								if (Object.prototype.hasOwnProperty.call(folder.children, key)) {
+									const entity = folder.children[key];
+									if (!entity) continue;
 									if (entity.type === 'folder') {
-										folders.push(entity);
-									} else if (entity.type === 'browser' && entity.cachePath === '$CACHE_PATH') {
-										entity.cachePath = await remote.path.call('join', store.paths.userDataDirsFolder, entity.uid);
+										folders.push(entity as any);
+									} else if (entity.type === 'browser' && (entity as any).cachePath === '$CACHE_PATH') {
+										(entity as any).cachePath = await remote.path.call(
+											'join',
+											store.paths.userDataDirsFolder,
+											entity.uid
+										);
 									}
 								}
 							}
@@ -164,7 +172,7 @@ function importData() {
 						simple: false,
 						onOk() {
 							remote.app.call('relaunch');
-							remote.app.call('exit', 0);
+							remote.methods.call('quitApp', 0);
 						}
 					});
 				} catch (err) {
@@ -176,7 +184,7 @@ function importData() {
 function exportData() {
 	Modal.confirm({
 		title: '导出数据',
-		content: '数据中包含自动化脚本的配置（例如账号密码），请小心保存防止泄露。导出后可在其他电脑中恢复数据。',
+		content: '数据中包含自动化程序的配置（例如账号密码），请小心保存防止泄露。导出后可在其他电脑中恢复数据。',
 		okText: '确认',
 		cancelText: '取消',
 		onOk() {
@@ -195,19 +203,36 @@ function exportData() {
 						const folders: FolderOptions<any, Folder<FolderType> | Browser>[] = [root];
 						while (folders.length) {
 							const folder = folders.shift();
-							if (Object.keys(folder?.children || {}).length) {
-								for (const key in folder?.children) {
-									if (Object.prototype.hasOwnProperty.call(folder?.children, key)) {
-										const entity = folder?.children[key];
+							if (!folder) continue;
+							if (Object.keys(folder.children || {}).length) {
+								for (const key in folder.children) {
+									if (Object.prototype.hasOwnProperty.call(folder.children, key)) {
+										const entity = folder.children[key];
+										if (!entity) continue;
 										if (entity.type === 'folder') {
-											folders.push(entity);
+											folders.push(entity as any);
 										} else if (entity.type === 'browser') {
-											entity.cachePath = '$CACHE_PATH';
+											(entity as any).cachePath = '$CACHE_PATH';
 										}
 									}
 								}
 							}
 						}
+
+						// 导出前加密 render 数据，防止明文泄露
+						if (typeof _store.render !== 'string') {
+							(_store as any).render = remote.methods.callSync(
+								'encryptRenderString' as any,
+								JSON.stringify(_store.render)
+							) as string;
+						}
+
+						// 删除多余数据
+						const filter_keys: (keyof typeof _store)[] = ['paths', 'window', 'server'];
+						for (const key of filter_keys) {
+							delete _store[key];
+						}
+
 						await remote.fs.call('writeFileSync', filePath + '.ocsdata', JSON.stringify(_store, null, 4));
 						Message.success('导出成功！');
 					}
@@ -294,7 +319,7 @@ async function showVersionLogs() {
 	display: flex;
 	align-items: center;
 	/** 系统自带控件高度为 32 */
-	height: 32px;
+	height: var(--title-height);
 	cursor: default;
 	border-bottom: 1px solid #f3f3f3;
 

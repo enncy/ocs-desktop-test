@@ -26,7 +26,8 @@ export function ocr(base64: string) {
 			const cmd = [`".${path.join(getOcrFolder(), getOCRFileName())}"`, '--ocr', `"${img}"`].join(' ');
 			logger.log('cmd', cmd);
 
-			child_process.exec(cmd, (err, stdout, stderr) => {
+			// timeout 防止 ocr.exe 挂起导致请求无限等待
+			child_process.exec(cmd, { timeout: 20_000, windowsHide: true }, (err, stdout, stderr) => {
 				if (err || stderr) {
 					reject(err || stderr);
 				} else {
@@ -72,7 +73,7 @@ export function det(det_target_base64: string, det_bg_base64: string) {
 			`"${img2}"`
 		].join(' ');
 
-		child_process.exec(cmd, (err, stdout, stderr) => {
+		child_process.exec(cmd, { timeout: 20_000, windowsHide: true }, (err, stdout, stderr) => {
 			if (err || stderr) {
 				reject(err || stderr);
 			} else {

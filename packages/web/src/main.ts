@@ -3,10 +3,16 @@ import { createApp } from 'vue';
 import ArcoVue, { Icon } from '@arco-design/web-vue';
 import ArcoVueIcon from '@arco-design/web-vue/es/icon';
 import App from './App.vue';
+import AppInBrowser from './AppInBrowser.vue';
 import '@arco-design/web-vue/dist/arco.css';
 import { router } from './route';
 import { notify } from './utils/notify';
 import 'material-icons/iconfont/material-icons.css';
+// 自定义圆角主题覆盖，必须在 arco.css 之后引入
+import './assets/less/arco-custom.less';
+// 全局主题样式（主题色板 token + 暗色模式全局覆盖），在 arco-custom 之后引入以覆盖其浅色规则
+import './assets/less/theme.less';
+import { inBrowser } from './utils/node';
 
 window.addEventListener('error', function (e) {
 	console.error(e);
@@ -52,14 +58,34 @@ function errorFilter(str: string) {
 	}
 }
 
-createApp(App)
-	.use(router)
-	.use(ArcoVue)
-	.use(ArcoVueIcon)
-	.component('IconFont', Icon.addFromIconFontCn({ src: 'js/acro.font.js' }))
-	.directive('focus', {
-		mounted(el) {
-			el.focus();
-		}
-	})
-	.mount('#app');
+(() => {
+	/**
+	 * 区分浏览器环境和electron渲染进程环境
+	 */
+	if (inBrowser) {
+		createApp(AppInBrowser)
+			.use(router)
+			.use(ArcoVue)
+			.use(ArcoVueIcon)
+			.component('IconFont', Icon.addFromIconFontCn({ src: 'js/acro.font.js' }))
+			.directive('focus', {
+				mounted(el) {
+					el.focus();
+				}
+			})
+			.mount('#app');
+		return;
+	}
+
+	createApp(App)
+		.use(router)
+		.use(ArcoVue)
+		.use(ArcoVueIcon)
+		.component('IconFont', Icon.addFromIconFontCn({ src: 'js/acro.font.js' }))
+		.directive('focus', {
+			mounted(el) {
+				el.focus();
+			}
+		})
+		.mount('#app');
+})();

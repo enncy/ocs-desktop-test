@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<meta
+			http-equiv="Content-Security-Policy"
+			content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src http://localhost:*; img-src file: data:"
+		/>
+		<title>OCS - 初始化</title>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				background: transparent;
+				height: 100vh;
+				width: 100vw;
+				overflow: hidden;
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+					'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+			}
+			body {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			/* ===== Arco Design Modal ===== */
+			.arco-modal-wrapper {
+				width: 420px;
+				background-color: #fff;
+				border-radius: 4px;
+				box-shadow: 0 6px 16px 0 rgba(0, 0, 0, 0.08),
+					0 3px 6px -4px rgba(0, 0, 0, 0.12),
+					0 9px 28px 8px rgba(0, 0, 0, 0.05);
+				overflow: hidden;
+				user-select: none;
+			}
+
+			.arco-modal-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				padding: 16px 20px;
+			}
+			.header-left {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+			}
+			.header-icon {
+				width: 24px;
+				height: 24px;
+				border-radius: 6px;
+				object-fit: contain;
+				flex-shrink: 0;
+				display: block;
+			}
+			.arco-modal-title {
+				font-size: 16px;
+				line-height: 1.5;
+				font-weight: 500;
+				color: #1d2129;
+			}
+			.arco-icon-close {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 16px;
+				height: 16px;
+				color: #c9cdd4;
+				cursor: not-allowed;
+			}
+			.arco-icon-close svg {
+				width: 100%;
+				height: 100%;
+				display: block;
+			}
+
+			.arco-modal-body {
+				padding: 8px 20px 16px;
+			}
+			.log-list {
+				list-style: none;
+				max-height: 180px;
+				overflow-y: auto;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+			}
+			.log-list::-webkit-scrollbar {
+				width: 6px;
+			}
+			.log-list::-webkit-scrollbar-thumb {
+				background: #e5e6eb;
+				border-radius: 3px;
+			}
+			.log-item {
+				display: flex;
+				align-items: flex-start;
+				gap: 8px;
+				font-size: 13px;
+				line-height: 1.5;
+			}
+			.log-icon {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 16px;
+				height: 16px;
+				flex-shrink: 0;
+				margin-top: 1px;
+			}
+			.log-spinner {
+				display: inline-block;
+				width: 12px;
+				height: 12px;
+				border: 2px solid #e5e6eb;
+				border-top-color: #165dff;
+				border-radius: 50%;
+				animation: arco-spin 1s linear infinite;
+			}
+			.log-check {
+				color: #00b42a;
+			}
+			.log-check svg {
+				width: 16px;
+				height: 16px;
+				display: block;
+			}
+			.log-error {
+				color: #f53f3f;
+			}
+			.log-error svg {
+				width: 16px;
+				height: 16px;
+				display: block;
+			}
+			.log-text {
+				color: #86909c;
+				word-break: break-word;
+			}
+			.log-item.active .log-text {
+				color: #1d2129;
+				font-weight: 500;
+			}
+			.log-item.error .log-text {
+				color: #f53f3f;
+			}
+
+			.arco-modal-footer {
+				padding: 12px 20px;
+				text-align: right;
+				border-top: 1px solid #e5e6eb;
+			}
+			.arco-btn {
+				height: 32px;
+				padding: 0 15px;
+				border-radius: 2px;
+				font-size: 14px;
+				line-height: 1.5715;
+				border: 1px solid transparent;
+				cursor: not-allowed;
+			}
+			.arco-btn-primary {
+				background-color: #94bfff;
+				border-color: #94bfff;
+				color: #fff;
+			}
+			.arco-btn-danger {
+				background-color: #fdcbdc;
+				border-color: #fdcbdc;
+				color: #fff;
+			}
+
+			@keyframes arco-spin {
+				to {
+					transform: rotate(360deg);
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<div
+			id="card"
+			class="arco-modal-wrapper"
+		>
+			<div class="arco-modal-header">
+				<div class="header-left">
+					<img
+						class="header-icon"
+						src="favicon.png"
+						alt="OCS"
+					/>
+					<span
+						id="title"
+						class="arco-modal-title"
+						>OCS 初始化</span
+					>
+				</div>
+				<span class="arco-icon-close">
+					<svg
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+					>
+						<path d="M18 6L6 18M6 6l12 12" />
+					</svg>
+				</span>
+			</div>
+
+			<div class="arco-modal-body">
+				<ul
+					id="log-list"
+					class="log-list"
+				>
+					<li
+						class="log-item active"
+						data-index="0"
+					>
+						<span class="log-icon">
+							<span class="log-spinner"></span>
+						</span>
+						<span class="log-text">正在准备初始化环境...</span>
+					</li>
+				</ul>
+			</div>
+
+			<div class="arco-modal-footer">
+				<button
+					id="footer-btn"
+					type="button"
+					class="arco-btn arco-btn-primary"
+					disabled
+				>
+					请稍候
+				</button>
+			</div>
+		</div>
+
+		<script>
+			(function () {
+				var titleEl = document.getElementById('title');
+				var listEl = document.getElementById('log-list');
+				var footerBtn = document.getElementById('footer-btn');
+
+				// 从 query 读取端口（由主进程 createLoadingWindow 注入），默认 15319
+				var port = (function () {
+					var m = /(?:[?&]port=)(\d+)/.exec(window.location.search);
+					return m ? m[1] : '15319';
+				})();
+				var STATUS_URL = 'http://localhost:' + port + '/api/init/status';
+
+				var TITLE_MAP = {
+					idle: 'OCS 初始化',
+					loading: 'OCS 初始化',
+					done: '初始化完成',
+					restart: '初始化完成',
+					error: '初始化失败'
+				};
+				var FOOTER_MAP = {
+					idle: '请稍候',
+					loading: '请稍候',
+					done: '完成',
+					restart: '重启中…',
+					error: '失败'
+				};
+
+				function iconHtml(state) {
+					if (state === 'active') {
+						return '<span class="log-spinner"></span>';
+					}
+					if (state === 'error') {
+						return (
+							'<svg class="log-error" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+							'<circle cx="12" cy="12" r="9"/>' +
+							'<path d="M12 7v6M12 16h.01" stroke-linecap="round"/>' +
+							'</svg>'
+						);
+					}
+					return (
+						'<svg class="log-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" ' +
+						'stroke-linecap="round" stroke-linejoin="round">' +
+						'<path d="M20 6L9 17l-5-5"/>' +
+						'</svg>'
+					);
+				}
+
+				function render(data) {
+					var status = data.status || 'idle';
+					var logs = data.logs || [];
+					titleEl.textContent = TITLE_MAP[status] || 'OCS 初始化';
+					footerBtn.textContent = FOOTER_MAP[status] || '请稍候';
+					footerBtn.className = 'arco-btn ' + (status === 'error' ? 'arco-btn-danger' : 'arco-btn-primary');
+
+					// 日志列表为空时显示占位
+					if (!logs.length) {
+						listEl.innerHTML =
+							'<li class="log-item active" data-index="0">' +
+							'<span class="log-icon"><span class="log-spinner"></span></span>' +
+							'<span class="log-text">正在准备初始化环境...</span>' +
+							'</li>';
+						return;
+					}
+
+					var html = '';
+					for (var i = 0; i < logs.length; i++) {
+						var e = logs[i];
+						html +=
+							'<li class="log-item ' + e.state + '" data-index="' + e.index + '">' +
+							'<span class="log-icon">' + iconHtml(e.state) + '</span>' +
+							'<span class="log-text">' + escapeHtml(e.text) + '</span>' +
+							'</li>';
+					}
+					listEl.innerHTML = html;
+					// 滚动到最新一条
+					listEl.scrollTop = listEl.scrollHeight;
+				}
+
+				function escapeHtml(str) {
+					return String(str).replace(/[&<>"']/g, function (c) {
+						return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+					});
+				}
+
+				function poll() {
+					fetch(STATUS_URL, { cache: 'no-store' })
+						.then(function (res) {
+							if (res.ok) return res.json();
+							throw new Error('HTTP ' + res.status);
+						})
+						.then(function (data) {
+							if (data && typeof data === 'object') render(data);
+						})
+						.catch(function () {
+							// 服务器可能尚未就绪，忽略错误继续下轮重试
+						});
+				}
+
+				poll();
+				setInterval(poll, 500);
+			})();
+		</script>
+	</body>
+</html>

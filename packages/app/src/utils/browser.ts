@@ -47,9 +47,79 @@ export function getBrowserMajorVersion(executablePath: string) {
 }
 
 export function getExtensionPaths(extensionsFolder: string) {
-	return fs
-		.readdirSync(extensionsFolder)
-		.filter((f) => f !== '.DS_Store')
-		.filter((f) => !f.endsWith('.zip'))
-		.map((file) => path.join(extensionsFolder, file));
+	return (
+		fs
+			.readdirSync(extensionsFolder)
+			.filter((f) => f !== '.DS_Store')
+			.filter((f) => !f.endsWith('.zip'))
+			.map((file) => path.join(extensionsFolder, file))
+			// 只保留真正的 Chrome 扩展（目录且含 manifest.json），跳过 OCR 等非扩展文件夹
+			.filter((p) => fs.statSync(p).isDirectory() && fs.existsSync(path.join(p, 'manifest.json')))
+	);
+}
+
+/** 内容一致则跳过写入，避免扩展文件变动触发 Chrome 扩展重载 */
+function writeIfChanged(file: string, content: string) {
+	if (fs.existsSync(file) && fs.readFileSync(file, 'utf-8') === content) return;
+	fs.writeFileSync(file, content, 'utf-8');
+}
+
+/**
+ * 生成（或复用）浏览器专属的导航页扩展：
+ * 通过 chrome_url_overrides.newtab 将「新建标签页」替换为本地导航页（携带 uid）。
+ * 扩展页以整页 iframe 嵌入导航页：标签页 URL 停留在扩展页（Chrome 视其为新标签页，
+ * 地址栏显示为空，类似 Edge 新标签页），iframe 内部仍为 localhost 源，
+ * localStorage / 接口请求等数据流与直接访问完全一致。
+ * 扩展按浏览器独立生成（uid 固定），内容对同一浏览器恒定，多浏览器并发互不干扰。
+ * @param dir 扩展目录（建议位于该浏览器专属缓存目录下）
+ * @returns 扩展目录路径
+ */
+export function ensureNewTabExtension(dir: string, opts: { uid: string; port: number }): string {
+	const targetUrl = `http://localhost:${opts.port}/index.html#/bookmarks?uid=${encodeURIComponent(opts.uid)}`;
+
+	const manifest = JSON.stringify(
+		{
+			manifest_version: 3,
+			name: 'OCS New Tab',
+			version: '1.0.0',
+			description: '将新建标签页显示为 OCS 快捷导航页',
+			chrome_url_overrides: { newtab: 'newtab.html' }
+		},
+		null,
+		'\t'
+	);
+
+	// 整页 iframe 嵌入导航页，标签页地址栏保持 NTP 空白状态
+	const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="UTF-8" />
+		<title>OCS 快捷导航页</title>
+		<style>
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				height: 100%;
+				overflow: hidden;
+			}
+			iframe {
+				position: fixed;
+				inset: 0;
+				width: 100%;
+				height: 100%;
+				border: 0;
+			}
+		</style>
+	</head>
+	<body>
+		<iframe src="${targetUrl}"></iframe>
+	</body>
+</html>
+`;
+
+	fs.mkdirSync(dir, { recursive: true });
+	writeIfChanged(path.join(dir, 'manifest.json'), manifest);
+	writeIfChanged(path.join(dir, 'newtab.html'), html);
+	return dir;
 }
