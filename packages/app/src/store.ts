@@ -36,6 +36,15 @@ export const OriginalAppStore: AppStore = {
 		port: 15319,
 		authToken: ''
 	},
+	/** 更新设置（测试/调试用途，正式用户留空即为线上默认） */
+	updater: {
+		/** 自定义更新源目录（latest.yml 所在 URL），留空使用构建时 publish.url 默认源 */
+		feedUrl: '',
+		/** 自定义软件信息接口 URL（更新日志来源），留空使用默认 ocs-app-infos.json */
+		infosUrl: '',
+		/** 允许降级/同版本覆盖安装（重复测试用） */
+		allowDowngrade: false
+	},
 	/** 渲染进程数据 */
 	render: {} as { [x: string]: any }
 };

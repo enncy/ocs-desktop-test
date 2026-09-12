@@ -11,7 +11,7 @@ import { getValidBrowsers } from '@ocs-desktop/common/node';
 import { store } from '../store';
 import { exportExcel } from '../utils/index';
 import { readdir, stat } from 'fs/promises';
-import { updateApp } from './updater';
+import { updateApp, updater } from './updater';
 import { AutomationScripts } from '../scripts';
 import { getBrowserMajorVersion, getExtensionPaths, ensureNewTabExtension } from '../utils/browser';
 import { installBuiltinChrome } from './init.chrome';
@@ -130,6 +130,8 @@ const methods: RemoteMethods = {
 	/** 读取系统当前是否为深色主题（nativeTheme.themeSource 默认 system，跟随 OS） */
 	getSystemDark: () => nativeTheme.shouldUseDarkColors,
 	updateApp: updateApp,
+	/** 手动检查更新（设置页「更新设置」卡片使用），返回当前/最新版本与是否有更新 */
+	checkUpdate: updater,
 	/** 隐藏主窗口到系统托盘（后台运行） */
 	hideToTray: hideToTray,
 	/** 程序化退出（置位 isQuitting 后 app.exit，绕过「隐藏到托盘」） */

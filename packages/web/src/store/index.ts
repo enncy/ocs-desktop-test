@@ -219,7 +219,9 @@ export const DEFAULT_RENDER = {
 const _store: AppStore & { render: WebStore } = defaultsDeep(remote['electron-store'].get('store'), {
 	render: DEFAULT_RENDER,
 	// 补齐主进程 window 配置中可能缺失的字段（旧版本用户未触发版本迁移时），后台运行默认关闭
-	window: { hideToTrayOnClose: false }
+	window: { hideToTrayOnClose: false },
+	// 补齐更新测试配置（旧版本用户的磁盘 store 无此字段）
+	updater: { feedUrl: '', infosUrl: '', allowDowngrade: false }
 });
 
 // 解密数据（兼容新旧加密格式）

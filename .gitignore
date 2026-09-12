@@ -105,6 +105,9 @@ out
 .nuxt
 dist/
 
+# electron-builder 安装包产物（仓库根目录，见 packages/app/electron.builder.json directories.output）
+releases/
+
 # Gatsby files
 .cache/
 # Comment in the public line in if your project uses Gatsby and not Next.js
