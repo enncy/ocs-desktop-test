@@ -500,7 +500,7 @@
 				</template>
 				<a-input
 					v-model="store.updater.feedUrl"
-					placeholder="默认：https://cdn.ocsjs.com/app/electron-updater/"
+					placeholder="默认：https://cdn.ocsjs.com/app/test/electron-updater/"
 					allow-clear
 				/>
 			</Description>

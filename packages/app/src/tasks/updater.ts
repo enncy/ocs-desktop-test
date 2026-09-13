@@ -10,7 +10,7 @@ import { UpdateInformationResource } from '@ocs-desktop/common';
 const logger = Logger('updater');
 
 /** 默认更新源目录（与 electron.builder.json publish.url 一致），CHANGELOG.md 随构建一并上传至此目录 */
-const DEFAULT_FEED_URL = 'https://cdn.ocsjs.com/app/electron-updater/';
+const DEFAULT_FEED_URL = 'https://cdn.ocsjs.com/app/test/electron-updater/';
 
 /** 保持“用户确认后才下载”的交互，由渲染层弹窗触发 downloadUpdate */
 autoUpdater.autoDownload = false;
