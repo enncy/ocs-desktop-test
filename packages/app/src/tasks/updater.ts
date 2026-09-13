@@ -140,8 +140,7 @@ export async function updater() {
 		const result = await autoUpdater.checkForUpdates();
 		const latest = result?.updateInfo?.version || app.getVersion();
 		const hasUpdate =
-			!!result?.updateInfo &&
-			(autoUpdater.allowDowngrade ? latest !== app.getVersion() : gt(latest, app.getVersion()));
+			!!result?.updateInfo && (autoUpdater.allowDowngrade ? latest !== app.getVersion() : gt(latest, app.getVersion()));
 		logger.info('检查更新结果', { current: app.getVersion(), latest, hasUpdate });
 		return { current: app.getVersion(), latest, hasUpdate };
 	} catch (e) {

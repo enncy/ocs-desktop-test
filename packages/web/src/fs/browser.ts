@@ -78,10 +78,14 @@ export class Browser extends Entity implements BrowserOptions {
 		// 导航页扩展：新建标签页显示导航页（chrome_url_overrides.newtab），地址栏保持空白
 		// 未启用自定义导航页时跳过，浏览器保持默认空白导航页
 		if (store.render.setting.browser.bookmarkPage.enable !== false) {
-			const newtabExtension: string = await remote.methods.call('ensureNewTabExtension', `${this.cachePath}/ocs-newtab`, {
-				uid: this.uid,
-				port: store.server.port || 15319
-			});
+			const newtabExtension: string = await remote.methods.call(
+				'ensureNewTabExtension',
+				`${this.cachePath}/ocs-newtab`,
+				{
+					uid: this.uid,
+					port: store.server.port || 15319
+				}
+			);
 			extensionPaths.push(newtabExtension);
 		}
 		// 初始页面使用 about:blank，导航页由导航页扩展接管，避免地址栏暴露 localhost 地址
