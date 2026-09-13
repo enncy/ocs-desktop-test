@@ -190,10 +190,6 @@ importers:
         specifier: 42.11.3
         version: 42.11.3
       electron-builder:
-<<<<<<< HEAD
-        specifier: ^23.1.0
-        version: 23.6.0
-=======
         specifier: ^26.15.3
         version: 26.15.3(electron-builder-squirrel-windows@26.15.3)
       electron-vite:
@@ -211,7 +207,6 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 3.2.7(@types/debug@4.1.13)(@types/node@24.13.3)(jsdom@13.2.0)(less@4.6.4)(terser@5.48.0)
->>>>>>> b2ffe26141673e25e70ebe73cefb61c695cc740e
 
   packages/common:
     dependencies:
