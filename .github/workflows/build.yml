@@ -3,6 +3,25 @@ name: Build and Upload
 on:
   workflow_dispatch:
 
+# ==================== 常量配置（统一在此维护） ====================
+env:
+  # 腾讯云 COS 桶与地域（非机密；机密仅需配置 secrets.TENCENT_SECRET_ID / TENCENT_SECRET_KEY）
+  COS_BUCKET: ocs-1301696006
+  COS_REGION: ap-guangzhou
+  # COS 目标目录（fork 验证统一使用 /app/test/ 前缀；生产为 /app/，合回上游前需还原）
+  COS_DOWNLOAD_DIR: /app/test/download/
+  COS_UPDATER_DIR: /app/test/electron-updater/
+  # coscmd 上传调优参数（已对照 coscmd config -h 核实）：
+  #   COS_THREAD_NUM  并发线程数：单文件分片并发，取 ≈分片数即可（200MB/16MB≈13 片）；
+  #                   国际链路上过高并发会加剧拥塞反而降低成功率，runner 为 4 vCPU，取 10
+  #   COS_PART_SIZE   分片大小 MB（默认仅 1MB：200MB 文件会切 200 片，慢且易失败，调大到 16MB）
+  #   COS_RETRY       单个分片失败重试次数
+  #   COS_TIMEOUT     单请求超时秒数（注意：-t 是 token 参数，不是超时；--connect-timeout 不存在）
+  COS_THREAD_NUM: "10"
+  COS_PART_SIZE: "16"
+  COS_RETRY: "10"
+  COS_TIMEOUT: "600"
+
 jobs:
   build:
     strategy:
@@ -169,7 +188,7 @@ jobs:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-    # 腾讯云 COS 上传 — 需要配置 secrets
+    # 腾讯云 COS 上传 — 仅需配置 secrets.TENCENT_SECRET_ID / TENCENT_SECRET_KEY
     # 如果是 fork 仓库没有密钥，此 job 会自动跳过
     continue-on-error: true
 
@@ -204,23 +223,17 @@ jobs:
         if: steps.check-secrets.outputs.available == 'true'
         run: pip install coscmd
 
-      # coscmd 参数（已对照 coscmd config -h 核实）：
-      #   -m        并发线程数：单文件分片并发，取 ≈分片数即可（200MB/16MB≈13 片）；
-      #             国际链路上过高并发会加剧拥塞反而降低成功率，runner 为 4 vCPU，取 10
-      #   -p        分片大小 MB（默认仅 1MB：200MB 文件会切 200 片，慢且易失败，调大到 16MB）
-      #   --retry   单个分片失败重试次数
-      #   --timeout 单请求超时秒数（注意：-t 是 token 参数，不是超时；--connect-timeout 不存在）
       - name: Configure Tencent Cloud COS
         if: steps.check-secrets.outputs.available == 'true'
         run: |
           coscmd config -a ${{ secrets.TENCENT_SECRET_ID }} \
             -s ${{ secrets.TENCENT_SECRET_KEY }} \
-            -b ${{ secrets.COS_BUCKET }} \
-            -r ${{ secrets.COS_REGION }} \
-            -m 10 \
-            -p 16 \
-            --retry 10 \
-            --timeout 600
+            -b "$COS_BUCKET" \
+            -r "$COS_REGION" \
+            -m "$COS_THREAD_NUM" \
+            -p "$COS_PART_SIZE" \
+            --retry "$COS_RETRY" \
+            --timeout "$COS_TIMEOUT"
 
       # 逐文件上传 + 调用级重试：
       # coscmd upload 默认开启分片断点续传（-f/--force 才是关闭断点），
@@ -236,7 +249,7 @@ jobs:
             [ -f "$file" ] || continue
             for attempt in 1 2 3 4 5; do
               echo "Uploading $file (attempt $attempt/5)"
-              if coscmd upload -y "$file" "/app/download/${{ env.VERSION }}/"; then
+              if coscmd upload -y "$file" "${COS_DOWNLOAD_DIR}${{ env.VERSION }}/"; then
                 break
               fi
               if [ "$attempt" = 5 ]; then
@@ -280,12 +293,12 @@ jobs:
         run: |
           coscmd config -a ${{ secrets.TENCENT_SECRET_ID }} \
             -s ${{ secrets.TENCENT_SECRET_KEY }} \
-            -b ${{ secrets.COS_BUCKET }} \
-            -r ${{ secrets.COS_REGION }}
+            -b "$COS_BUCKET" \
+            -r "$COS_REGION"
 
       - name: Upload CHANGELOG.md to COS
         if: steps.check-secrets.outputs.available == 'true'
-        run: coscmd upload -y CHANGELOG.md /app/electron-updater/
+        run: coscmd upload -y CHANGELOG.md "$COS_UPDATER_DIR"
 
   # electron-updater 三件套（latest*.yml + 安装包 + blockmap）上传到固定更新目录。
   # 最后执行：latest.yml 一旦生效客户端即会检测到新版本，
@@ -324,12 +337,12 @@ jobs:
         run: |
           coscmd config -a ${{ secrets.TENCENT_SECRET_ID }} \
             -s ${{ secrets.TENCENT_SECRET_KEY }} \
-            -b ${{ secrets.COS_BUCKET }} \
-            -r ${{ secrets.COS_REGION }} \
-            -m 10 \
-            -p 16 \
-            --retry 10 \
-            --timeout 600
+            -b "$COS_BUCKET" \
+            -r "$COS_REGION" \
+            -m "$COS_THREAD_NUM" \
+            -p "$COS_PART_SIZE" \
+            --retry "$COS_RETRY" \
+            --timeout "$COS_TIMEOUT"
 
       - name: Upload electron-updater files to COS
         if: steps.check-secrets.outputs.available == 'true'
@@ -341,7 +354,7 @@ jobs:
             [ -f "$file" ] || continue
             for attempt in 1 2 3 4 5; do
               echo "Uploading $file (attempt $attempt/5)"
-              if coscmd upload -y "$file" "/app/electron-updater/"; then
+              if coscmd upload -y "$file" "$COS_UPDATER_DIR"; then
                 break
               fi
               if [ "$attempt" = 5 ]; then

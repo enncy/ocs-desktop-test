@@ -21,7 +21,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const UPDATER_BASE_URL = 'https://cdn.ocsjs.com/app/electron-updater/';
+const UPDATER_BASE_URL = 'https://cdn.ocsjs.com/app/test/electron-updater/';
 const FALLBACK_DOWNLOAD_PAGE = 'https://docs.ocsjs.com';
 
 function fetchText(url) {
