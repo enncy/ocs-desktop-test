@@ -8,6 +8,138 @@
 
 
 
+## [3.0.0](https://github.com/enncy/ocs-desktop-test/compare/v2.11.1...v3.0.0) (2026-09-13)
+
+
+### ✨ Features
+
+* **ci:** 添加 CI 和安全检查工作流 ([5321b94](https://github.com/enncy/ocs-desktop-test/commit/5321b94172a17cf742ee298e30082eef45f4453a))
+* **web:** 使用现代暗色主题重新设计书签页面 ([e083b99](https://github.com/enncy/ocs-desktop-test/commit/e083b99a612bf4b12e711e0320da8ace01567159))
+* 主题颜色选择、自定义导航页开关与设置页体验优化 ([152873b](https://github.com/enncy/ocs-desktop-test/commit/152873b9336d4b792cc52ef2d4096855f88fc8de))
+* 安装包移除内置浏览器改为首启按需下载，体积由260MB+精简至87MB ([98e0b5b](https://github.com/enncy/ocs-desktop-test/commit/98e0b5bf9d6cd2213b7eb028b1acdeaa1d303b27))
+* 导航页全面优化与标签页自定义设置 ([c33813c](https://github.com/enncy/ocs-desktop-test/commit/c33813ce428d1ed2b1e679b0d9618f75105e24fa))
+* 将截图预览重构为实时渲染推流 ([8b665df](https://github.com/enncy/ocs-desktop-test/commit/8b665df8c03f1b80111195006f9ab49566399353))
+* 新增中国大学MOOC(icourse163)自动登录脚本，支持手机号/邮箱登录与网易易盾滑块验证码 ([bd6479a](https://github.com/enncy/ocs-desktop-test/commit/bd6479a2bf4ef2df82536e4aafdb7efc13c92039))
+* 新增全局Banner通知显示 ([9e0859f](https://github.com/enncy/ocs-desktop-test/commit/9e0859fa8eb69acd7ed221159a642377cfcb3253))
+* 新增加密解密算法，并适配原方案。 ([4660b9e](https://github.com/enncy/ocs-desktop-test/commit/4660b9e7908e2a6b723256f14fcbc11d26379357))
+* 新增后台运行功能、优化重置设置功能 ([98c188f](https://github.com/enncy/ocs-desktop-test/commit/98c188f4a8f5bd8c8be3bfadd670cc79d41e1ffc))
+* 新增简洁界面首页的新手引导教程 ([039fa5a](https://github.com/enncy/ocs-desktop-test/commit/039fa5a4e3b0a9a05ed67051070d67bb253d9adb))
+* 新增脚本使用meta.js更新检测功能，如果版本不需要更新则直接跳过 ([4ca3147](https://github.com/enncy/ocs-desktop-test/commit/4ca3147607631733546e4cab66195f9c3d7f433e))
+* 新增鼠标拖拽排序以及移入移出文件夹功能 ([cdcd0e5](https://github.com/enncy/ocs-desktop-test/commit/cdcd0e5d061eb4cef3941f1f0ae9ee2f9f91fe8d))
+* 浏览器备注为空时回退为自动化程序信息展示（敏感信息掩码），并修复备注区域溢出界面的问题 ([f7ffb83](https://github.com/enncy/ocs-desktop-test/commit/f7ffb832ca4fa2e368caf27a57c2abbf21b56582))
+* 浏览器监控改为Playwright定时截图、扩展加载优化及UI调整 ([f53f553](https://github.com/enncy/ocs-desktop-test/commit/f53f5539e819ba6acaf69ee9686f7126486bc6e7))
+* 添加新 API StatusBar 可为当前状态操作提供状态栏显示 ([eddbec0](https://github.com/enncy/ocs-desktop-test/commit/eddbec03b14da2b7aa9568b81fd41e62f3b028f7))
+* 添加简洁模式 ([029a961](https://github.com/enncy/ocs-desktop-test/commit/029a961f55e64509d2da5a756d3e3db8525a1cb9))
+* 环境修复复用多源下载安装内置浏览器，替代整包下载 ([1bb1edf](https://github.com/enncy/ocs-desktop-test/commit/1bb1edf9736020d68146aaa020ce3afaebc12307))
+* 登录脚本加"自动"命名、智慧树滑块改闭环伺服并修复小屏视口下元素不可见 ([e546a02](https://github.com/enncy/ocs-desktop-test/commit/e546a02467e60ea24054e3978ef267527f710baf))
+* 简洁模式浏览器关闭后保留最后一帧预览图覆盖卡片，支持一键关闭恢复正常显示 ([7110404](https://github.com/enncy/ocs-desktop-test/commit/71104043699240471c4a52d07dcc0d12fafeaf5b))
+* 自动化脚本增强(icve/zhs/zjy/icourse)、OCR超时保护与用户脚本安装优化 ([eec6509](https://github.com/enncy/ocs-desktop-test/commit/eec6509946df64d007cf80682017c84bb87a1b5a))
+* 自动更新迁移至 electron-updater 并重构发布流水线 ([b2ffe26](https://github.com/enncy/ocs-desktop-test/commit/b2ffe26141673e25e70ebe73cefb61c695cc740e))
+* 项目更新与 CI 工作流添加 ([b21a67a](https://github.com/enncy/ocs-desktop-test/commit/b21a67af520eae938d91f6bc98dfe57ecee6e4f8))
+* 预览卡片新增切换页面功能 ([ae30902](https://github.com/enncy/ocs-desktop-test/commit/ae309024436419d8ffa220562c36d35ec75d86f5))
+
+
+### 🐛 Bug Fixes
+
+* **app:** 修复本地脚本安装死循环及开发环境内置浏览器不可用 ([c4fd159](https://github.com/enncy/ocs-desktop-test/commit/c4fd1594f1b73dcff7d0f7dc40587d93dffc0ad9))
+* **app:** 修复本地脚本安装死循环及开发环境内置浏览器不可用 ([fd2e0da](https://github.com/enncy/ocs-desktop-test/commit/fd2e0da6a508e5e01855c668be2e66b202ce1e6e))
+* **ci:** 添加 issues 和 pull-requests 写权限修复 label 移除错误 ([796621e](https://github.com/enncy/ocs-desktop-test/commit/796621e1b3b33440f5dd9eb09d2a1df42dc3207b))
+* **web:** 使用实时easy-us库，同步最新版本 ([2d122a8](https://github.com/enncy/ocs-desktop-test/commit/2d122a8c4193f2ba8259678d622edd88e7f75976))
+* **web:** 修复 Mac 系统 favicon 图标显示问题 ([adee497](https://github.com/enncy/ocs-desktop-test/commit/adee49783dfd518507a48eb866ce2b5af8be6d0a))
+* **web:** 修复书签页面安装后无法访问的问题 ([291938f](https://github.com/enncy/ocs-desktop-test/commit/291938f50d94ac4077f44e0db6636fa9031c8c1c))
+* **web:** 移除初始化浏览器启动测试 ([da36a8d](https://github.com/enncy/ocs-desktop-test/commit/da36a8d3cee8f1904d207802ca2946b714998582))
+* worker 子进程加载 common 主入口不再依赖 electron ([58c45f8](https://github.com/enncy/ocs-desktop-test/commit/58c45f877c5dbad6650dd891e451ecfdb2883125))
+* 优化remote模块参数序列化问题 ([9546f88](https://github.com/enncy/ocs-desktop-test/commit/9546f8887715e2d12635548c780e36f43ceaa775))
+* 优化自动化程序选择弹窗、将按钮粘底防止高度过小无法看到 ([f1972b8](https://github.com/enncy/ocs-desktop-test/commit/f1972b8d45a6c03c1e1234a531fdf9145053c727))
+* 修复中国大学MOOC自动登录等待过久与Frame was detached报错 ([84b86dc](https://github.com/enncy/ocs-desktop-test/commit/84b86dc52abdfa9d4fca7086d1c4f2f710098195))
+* 修复加密竞态导致 render 重复加密、装箱 String 破坏响应式致界面点击无反应 ([85c9183](https://github.com/enncy/ocs-desktop-test/commit/85c9183af01da6dd379f59da3ef619b5fa589597))
+* 修复导航界面无法显示网站图标的问题 ([1bdd2d7](https://github.com/enncy/ocs-desktop-test/commit/1bdd2d7e4d3838192c5c8bb3f8de6ce6a01839d3))
+* 修复导航界面无法看到备注的BUG ([72bdf3b](https://github.com/enncy/ocs-desktop-test/commit/72bdf3b40ab725e17d7770a619ef61d8bd43505e))
+* 修复拓展加载解析其他文件夹的问题 ([d58a2e0](https://github.com/enncy/ocs-desktop-test/commit/d58a2e01c96feb4fa3bc5aeb4aada4b61c7b96bf))
+* 修复拖拽移动浏览器后数据错误BUG ([c3df609](https://github.com/enncy/ocs-desktop-test/commit/c3df609780655b001a3d8e2095b0aea9c9101dfd))
+* 修复本地开发时自动启动网页调试的BUG ([af9e21b](https://github.com/enncy/ocs-desktop-test/commit/af9e21b55ad120f9dda9fb0802f0f3ce5e6e53be))
+* 修复点击启动按钮会触发编辑的BUG ([2544236](https://github.com/enncy/ocs-desktop-test/commit/2544236379d12795d992e567f1dc8cf127d2cbdb))
+* 修复用户直接关闭浏览器窗口后卡片仍显示置顶图标的BUG，运行状态统一以processes数组权威判定 ([f47f788](https://github.com/enncy/ocs-desktop-test/commit/f47f7883070a651babc9ec97881f51ffc9c9464c))
+* 修复监控和开发脚本相关问题 ([3e344e9](https://github.com/enncy/ocs-desktop-test/commit/3e344e985b6b01fb122ea8ee62be34c33a6779b3))
+* 修复脚本meta.js更新检查功能，在指定版本时无法正确处理的问题 ([8186db7](https://github.com/enncy/ocs-desktop-test/commit/8186db7d098f00c1f942697bfc1d6bed7f0ce6fb))
+* 修复软件无限关闭的BUG ([0fef8b8](https://github.com/enncy/ocs-desktop-test/commit/0fef8b8b2e344e5b15c59c2834cc93eab074fc53))
+* 修复部分脚本作者头像无法显示的BUG ([9044a5c](https://github.com/enncy/ocs-desktop-test/commit/9044a5ca8e3befb70307d60e05eefc00552125a2))
+* 分离环境检测功能、新增 AppInBrowser.vue 组件、修复浏览器中书签界面显示软件提示弹窗以及自动切换简洁模式的BUG ([7a86a66](https://github.com/enncy/ocs-desktop-test/commit/7a86a66b8b69ff1740156793509951ea790e3e5b))
+* 初始化弹窗资源加载增加超时与失败重试，避免首次打开卡在加载中 ([bc76c4d](https://github.com/enncy/ocs-desktop-test/commit/bc76c4d54d8b8bdb2726308dcf1e5517998f78db))
+* 浏览器预览推流改为等待页面加载完成后截图作为首帧再推流，取消首帧看门狗与自动重试 ([554cf09](https://github.com/enncy/ocs-desktop-test/commit/554cf096158c564fe8d4c8bd5c336bf70e8db547))
+* 脚本预下载改用 Chromium 网络栈并暴露真实错误，浏览器启动失败状态不再卡死 ([158130e](https://github.com/enncy/ocs-desktop-test/commit/158130e66dd980f4015f245aa99e3da06cee1a2d))
+
+
+### ⚡ Performance
+
+* 优化OCS同步配置交互逻辑，优化用户脚本列表样式 ([07f2837](https://github.com/enncy/ocs-desktop-test/commit/07f28370dd656689cd000c004145f8374ffd4aad))
+* 优化OCS弹窗配置里的样式，懒加载配置信息 ([e7c60d6](https://github.com/enncy/ocs-desktop-test/commit/e7c60d6d8fdc0b856ca62dcc5aab1a578c4bf464))
+* 优化OCS弹窗配置里的样式，添加配置使用说明 ([594a582](https://github.com/enncy/ocs-desktop-test/commit/594a5825119ad09bdb3f4b8105c855dba3673a96))
+* 优化PR工作流、添加 separate-pull-requests 参数 ([4f6c730](https://github.com/enncy/ocs-desktop-test/commit/4f6c730a61ff0bcf77ac9c7a1efff95ef5e2bc58))
+* 优化双模式下的环境检测功能 ([6e83254](https://github.com/enncy/ocs-desktop-test/commit/6e832545e3fa2a6ebb70a44b5c6c1479bed76c0a))
+* 优化夜间模式适配、新增主题样式切换，可自动跟随系统 ([68a137e](https://github.com/enncy/ocs-desktop-test/commit/68a137e136bc66934f568e02b81a8b17c0aacf9d))
+* 优化应用中心设置、转移到软件设置中并优化安装交互流程 ([ac7f644](https://github.com/enncy/ocs-desktop-test/commit/ac7f6440f57b666180be8c4942e13eef8135fc3e))
+* 优化新建浏览器和文件夹名字重复的问题，额外新增序号 ([eedf2ab](https://github.com/enncy/ocs-desktop-test/commit/eedf2ab081cc3e86b1b6173e0ca8c9afa33c11cd))
+* 优化浏览器环境异常检测样式 ([e6c392b](https://github.com/enncy/ocs-desktop-test/commit/e6c392b68839148af1a4513df6c90645b3dd9345))
+* 优化滑动框样式 ([8f03be8](https://github.com/enncy/ocs-desktop-test/commit/8f03be8aff06159e30bf56e05df1e6f38e95920a))
+* 优化滚动条样式 ([f74a327](https://github.com/enncy/ocs-desktop-test/commit/f74a327fc59e1ca0c25bd58cbadfde131542ee6d))
+* 优化状态栏API，添加多种不同类型 ([7c80f27](https://github.com/enncy/ocs-desktop-test/commit/7c80f27b495f87babcf00ea540d3b94c76377eee))
+* 优化用户脚本和浏览器的使用提示 ([dda0a42](https://github.com/enncy/ocs-desktop-test/commit/dda0a42ef7412381b1cf85ffc9dc1b223fe32cb2))
+* 优化界面显示，添加动画，优化操作添加更多下拉菜单选项 ([63abfcc](https://github.com/enncy/ocs-desktop-test/commit/63abfcc67775ddd27f53d753973f2ab13cbc6a54))
+* 优化简洁模式Tab栏夜间模式显示、修复简洁模式点击启动会触发编辑功能的问题 ([44687a2](https://github.com/enncy/ocs-desktop-test/commit/44687a25e8c58b2ee884644eed8266c379c9470b))
+* 优化自动程序选择器，优化样式 ([2d2f07f](https://github.com/enncy/ocs-desktop-test/commit/2d2f07f66aba70fb5472b6b296c802b544ac3f38))
+* 优化设置界面文案 ([f28d3e6](https://github.com/enncy/ocs-desktop-test/commit/f28d3e65a9b05a5ac5b6b5a70b9a1728256d859b))
+* 优化软件启动初始化步骤将跳过按钮移至底部 ([fbb84fc](https://github.com/enncy/ocs-desktop-test/commit/fbb84fc6974e6cd9286fbbbfe2d4d3dac766df22))
+* 使用HTML弹窗显示浏览器初始化过程，替代系统原版弹窗。 ([b3020c9](https://github.com/enncy/ocs-desktop-test/commit/b3020c9f3dc77f330ec8b2312e2a5780f4008845))
+* 修复项目类型报错 ([9739ddb](https://github.com/enncy/ocs-desktop-test/commit/9739ddb190f722945a9b9b54ddd968d83543eb8f))
+* 修改浏览器基础信息获取方式，新增接口获取方法 ([8065f47](https://github.com/enncy/ocs-desktop-test/commit/8065f47f8b7aba705e42fec1fb6353e0b3c9f049))
+* 修改状态栏位置到 Ttile 顶部栏 ([1baf40e](https://github.com/enncy/ocs-desktop-test/commit/1baf40e5a0565ed3c8078f1f1f187c8602eb044e))
+* 分离环境检测、优化列表选择器、简洁模式设置可查看路径 ([b00fba3](https://github.com/enncy/ocs-desktop-test/commit/b00fba3c5c86829d4cbee515532a60c5d2b6d647))
+* 创建浏览器时自动弹出命名步骤和自动程序设置步骤 ([8cd59a7](https://github.com/enncy/ocs-desktop-test/commit/8cd59a75114e9ecf478d7e9f92b2179b1a3f0581))
+* 删除长宽比设置功能 ([9ce83b0](https://github.com/enncy/ocs-desktop-test/commit/9ce83b064fd3020a67853c736b21b352254a2a91))
+* 后台运行默认关闭、当有浏览器正在运行时关闭则会自动询问是否后台运行 ([7bfe99d](https://github.com/enncy/ocs-desktop-test/commit/7bfe99d2774e33264a622109a65ef602f9190896))
+* 增加圆角、阴影、背景颜色、优化各种组件样式 ([3d9a4ed](https://github.com/enncy/ocs-desktop-test/commit/3d9a4edb9ef26d822472d9f8b2bdfd71ad42f2b7))
+* 增加本地图标接口的缓存功能 ([ce360d4](https://github.com/enncy/ocs-desktop-test/commit/ce360d4d68ab6ccb158c2a524a6708129aa5c890))
+* 增加自动化程序的输入类型、属性等 ([1b03a8a](https://github.com/enncy/ocs-desktop-test/commit/1b03a8a63c752c9e40bf3adbfc38c0260a3ba1cf))
+* 将OCS配置按钮修改成配置界面，直接显示配置修改。 ([4bc5ace](https://github.com/enncy/ocs-desktop-test/commit/4bc5ace7a9270f69b7b3c4e86bc4da943a480b14))
+* 将专业模式/简洁模式切换按钮转移到设置界面 ([5fe3cbd](https://github.com/enncy/ocs-desktop-test/commit/5fe3cbd1937c71fad829562c46da42e92ad1b3cf))
+* 将操作和列表区域区分开 ([f735f5f](https://github.com/enncy/ocs-desktop-test/commit/f735f5f285900e9a09113a8dc8eb3654623d611a))
+* 将脚本搜索功能集成在按钮上，不再使用Tab栏展示，并且添加脚本列表分页功能 ([ca001ae](https://github.com/enncy/ocs-desktop-test/commit/ca001aecfd7ed5652834d2625fde18d4e094fdda))
+* 将自动化脚本文案更改：自动化程序，防止歧义 ([f6269e8](https://github.com/enncy/ocs-desktop-test/commit/f6269e897380e613f8e614f449b02c4c0207236b))
+* 当路径栏隐藏时，显示信息统计栏包括浏览器总数，标签总数，脚本总数等等 ([d73bf14](https://github.com/enncy/ocs-desktop-test/commit/d73bf14ba415cad7c3483376825987b1a35b05d2))
+* 新增 markdown 代码高亮显示功能 ([0bb7782](https://github.com/enncy/ocs-desktop-test/commit/0bb77826c3f9456cb278a5d1954acc13e9f4c509))
+* 新增使用提示Alert关闭功能、新增简洁模式Tab栏置顶功能 ([6dfd16f](https://github.com/enncy/ocs-desktop-test/commit/6dfd16f2860babd8f010140bb99af03143d03b25))
+* 新增软件欢迎和简介的弹窗 ([ea66a20](https://github.com/enncy/ocs-desktop-test/commit/ea66a20ae742586cd6d982ff6d3ceeeff541f9cb))
+* 新增软件设置到简洁模式中、并且优化样式和代码 ([1bccbc0](https://github.com/enncy/ocs-desktop-test/commit/1bccbc02a428bfb1faa0b8b29df86619d851eb2c))
+* 新增项目 SKILL ([dcffc5c](https://github.com/enncy/ocs-desktop-test/commit/dcffc5c611aa8fee6420e2623ceb08eb11c53133))
+* 浏览器操作抽屉改成弹窗界面，并且优化样式主次分明 ([fb4305c](https://github.com/enncy/ocs-desktop-test/commit/fb4305cc2f65c2086bdb3650e0f5ef0889fa8230))
+* 添加右键菜单的操作图标 ([dede775](https://github.com/enncy/ocs-desktop-test/commit/dede775f32295af0716b3b28addef793c9a3bce9))
+* 添加简洁模式下的多列布局设置功能 ([d6eda9d](https://github.com/enncy/ocs-desktop-test/commit/d6eda9de68e9623a43fd1ab4085a6ab7a4e0f75f))
+* 添加简洁模式浏览器全屏预览功能 ([b25f9f2](https://github.com/enncy/ocs-desktop-test/commit/b25f9f285cc38020093742134b1a018adc15b329))
+* 添加简洁模式的右键菜单提示 ([c3e7c1e](https://github.com/enncy/ocs-desktop-test/commit/c3e7c1e96ba6481625b8fee42f817744e034329d))
+* 添加网络脚本弹窗中现实官方脚本列表的功能 ([5119a33](https://github.com/enncy/ocs-desktop-test/commit/5119a330ed1eb59e4f3658ad5f5dca767398bdc4))
+* 添加脚本信息间隔检测、防止频繁检测 ([9b46fd9](https://github.com/enncy/ocs-desktop-test/commit/9b46fd9efd075637051aa3a0c3d54f78af9ebc89))
+* 添加自动化程序的网站图标显示 ([add17dd](https://github.com/enncy/ocs-desktop-test/commit/add17dd965b90ffdd9d4d944e6a66b1bcc174a44))
+* 添加鼠标右键选中浏览器特殊样式 ([b6b6172](https://github.com/enncy/ocs-desktop-test/commit/b6b6172029cc7d9a677f44a2081ad6b43b8c3192))
+* 给批量操作选项添加特定图标 ([5faf5d0](https://github.com/enncy/ocs-desktop-test/commit/5faf5d0ee0f071fb1c6bf88d42cdd8755ae5b69b))
+* 重构监控功能、移除旧版的监控模式、新增浏览器截图预览功能 ([9408a92](https://github.com/enncy/ocs-desktop-test/commit/9408a924f4196b32201fe9cae950a804285dcbde))
+
+
+### 📝 Documentation
+
+* 更新 README 以反映当前开发工作流 ([84072cb](https://github.com/enncy/ocs-desktop-test/commit/84072cb09026690ebdce9fe6aeccaab92473b7ff))
+
+
+### ♻️ Refactoring
+
+* **ci:** 分离 Release PR 创建和 Release 发布流程 ([c78fc6b](https://github.com/enncy/ocs-desktop-test/commit/c78fc6b3cb93574c8c35326f0bdb6626b2b8b82b))
+* 修复 chrome://newtab 启动下步骤提示破坏导航页，并抽离启动流程函数 ([6edb0e8](https://github.com/enncy/ocs-desktop-test/commit/6edb0e87985e5ca9735c4e7ccec3c54bd67bf1e4))
+* 修改 lang 函数为 t ([bb69e2c](https://github.com/enncy/ocs-desktop-test/commit/bb69e2cd4fbcc7a54a1d41893af9fd627f0d349d))
+* 删除 remote 0 调用死能力（P2-B' 轻量加固） ([a889ddd](https://github.com/enncy/ocs-desktop-test/commit/a889ddd04fac7835437259f1e643092e8d29546e))
+* 抽取BrowserPreview组件复用浏览器预览封面与大图弹窗，对齐专业/简洁两种模式推流显示效果 ([d9ecff4](https://github.com/enncy/ocs-desktop-test/commit/d9ecff4012f41c21dcb455925a0a9e8eb59676d6))
+* 跨进程类型下沉 common，解除 web→app 反向依赖 ([1b3f742](https://github.com/enncy/ocs-desktop-test/commit/1b3f74266dac873fc2c025bd792d26297cc7c60a))
+* 重构项目架构 ([0db2ae6](https://github.com/enncy/ocs-desktop-test/commit/0db2ae6481f362fa6c799fa08c2767e7aa9ae7f1))
+
 ## [2.11.1](https://github.com/ocsjs/ocs-desktop/compare/v2.11.0...v2.11.1) (2026-06-10)
 
 
