@@ -287,9 +287,9 @@ jobs:
         if: steps.check-secrets.outputs.available == 'true'
         run: coscmd upload -y CHANGELOG.md "$COS_UPDATER_DIR"
 
-  # electron-updater 三件套（latest*.yml + 安装包 + blockmap）上传到固定更新目录。
-  # 最后执行：latest.yml 一旦生效客户端即会检测到新版本，
-  # 此时安装包（upload-cos）与更新日志（upload-changelog）均已就绪。
+  # 安装包 + blockmap 上传到固定更新目录（不含 latest*.yml）。
+  # 客户端只轮询 latest.yml 判断更新，仅传安装包不会触发任何更新提示；
+  # latest.yml 由最后的 publish-update job 经人工审批后才上传。
   upload-electron-updater:
     needs: upload-changelog
     if: startsWith(github.ref, 'refs/tags/')
@@ -337,7 +337,70 @@ jobs:
         run: |
           set -e
           shopt -s nullglob
-          for file in artifacts/latest*.yml artifacts/*.blockmap artifacts/*.exe artifacts/*.dmg artifacts/*.AppImage; do
+          for file in artifacts/*.blockmap artifacts/*.exe artifacts/*.dmg artifacts/*.AppImage; do
+            [ -f "$file" ] || continue
+            for attempt in 1 2 3 4 5; do
+              echo "Uploading $file (attempt $attempt/5)"
+              if coscmd upload -y "$file" "$COS_UPDATER_DIR"; then
+                break
+              fi
+              if [ "$attempt" = 5 ]; then
+                echo "::error::Upload failed after 5 attempts: $file"
+                exit 1
+              fi
+              sleep $((attempt * 15))
+            done
+          done
+
+  # 发布闸门：仅上传 latest*.yml。客户端只依据 latest.yml 判断是否有新版本，
+  # 本 job 执行前更新对用户完全不可见（安装包已就位但无版本指向）。
+  # 通过 GitHub Environment 实现人工审批：仓库 Settings → Environments 新建
+  # publish-update 环境并勾选 Required reviewers，流水线会停在本 job 等待
+  # Approve（上传 latest.yml，更新生效）或 Reject（本次更新不发布）。
+  publish-update:
+    needs: upload-electron-updater
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment: publish-update
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Check COS secrets availability
+        id: check-secrets
+        run: |
+          if [ -n "$COS_SECRET_ID" ]; then
+            echo "available=true" >> $GITHUB_OUTPUT
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "Skipping latest.yml upload: TENCENT_SECRET_ID not configured"
+          fi
+        env:
+          COS_SECRET_ID: ${{ secrets.TENCENT_SECRET_ID }}
+
+      - name: Install Tencent Cloud CLI
+        if: steps.check-secrets.outputs.available == 'true'
+        run: pip install coscmd
+
+      - name: Configure Tencent Cloud COS
+        if: steps.check-secrets.outputs.available == 'true'
+        run: |
+          coscmd config -a ${{ secrets.TENCENT_SECRET_ID }} \
+            -s ${{ secrets.TENCENT_SECRET_KEY }} \
+            -b "$COS_BUCKET" \
+            -r "$COS_REGION"
+
+      - name: Upload latest.yml to COS
+        if: steps.check-secrets.outputs.available == 'true'
+        shell: bash
+        run: |
+          set -e
+          shopt -s nullglob
+          for file in artifacts/latest*.yml; do
             [ -f "$file" ] || continue
             for attempt in 1 2 3 4 5; do
               echo "Uploading $file (attempt $attempt/5)"
