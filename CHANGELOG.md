@@ -8,6 +8,13 @@
 
 
 
+## [3.4.0](https://github.com/enncy/ocs-desktop-test/compare/v3.3.0...v3.4.0) (2026-09-14)
+
+
+### ✨ Features
+
+* 第二次更新链路验证（加速 endpoint + 审批闸门） ([5c6ec9b](https://github.com/enncy/ocs-desktop-test/commit/5c6ec9b456061d18a1784e775a84f3aafbf51def))
+
 ## [3.3.0](https://github.com/enncy/ocs-desktop-test/compare/v3.2.0...v3.3.0) (2026-09-14)
 
 
