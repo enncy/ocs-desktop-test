@@ -8,6 +8,13 @@
 
 
 
+## [3.0.1](https://github.com/enncy/ocs-desktop-test/compare/v3.0.0...v3.0.1) (2026-09-14)
+
+
+### 🐛 Bug Fixes
+
+* 修复打包启动崩溃（common 被外部化但 lib 未构建）与安装包图标丢失 ([3929256](https://github.com/enncy/ocs-desktop-test/commit/3929256aa542613e32629fc551778b9183a34f3b))
+
 ## [3.0.0](https://github.com/enncy/ocs-desktop-test/compare/v2.11.1...v3.0.0) (2026-09-13)
 
 
