@@ -8,6 +8,9 @@ env:
   # 腾讯云 COS 桶与地域（非机密；机密仅需配置 secrets.TENCENT_SECRET_ID / TENCENT_SECRET_KEY）
   COS_BUCKET: ocs-1301696006
   COS_REGION: ap-guangzhou
+  # 全球加速 endpoint：GitHub runner（美国）→ 广州为跨境链路，直连慢且部分 runner 路由不通，
+  # 走加速域名经腾讯骨干网回源（需控制台开启全球加速；coscmd 的 -r 与 -e 二选一）
+  COS_ENDPOINT: cos.accelerate.myqcloud.com
   # COS 目标目录（fork 验证统一使用 /app/test/ 前缀；生产为 /app/，合回上游前需还原）
   COS_DOWNLOAD_DIR: /app/test/download/
   COS_UPDATER_DIR: /app/test/electron-updater/
@@ -17,11 +20,12 @@ env:
   #   COS_PART_SIZE   分片大小 MB：慢链路下 16MB 单片需 2-4 分钟，超 COS 服务端容忍度
   #                   被 UserNetworkTooSlow 踢断；4MB 单片约 30 秒完成，规避踢断
   #   COS_RETRY       单个分片失败重试次数
-  #   COS_TIMEOUT     单请求超时秒数（注意：-t 是 token 参数，不是超时；--connect-timeout 不存在）
+  #   COS_TIMEOUT     单请求（含连接）超时秒数：路由不通时 600s 会把每次重试拖到 10 分钟，
+  #                   120s 快速失败进入下一次重试/更快暴露坏 runner（4MB 分片慢链路约 40s，余量足够）
   COS_THREAD_NUM: "3"
   COS_PART_SIZE: "4"
   COS_RETRY: "10"
-  COS_TIMEOUT: "600"
+  COS_TIMEOUT: "120"
 
 jobs:
   build:
@@ -217,7 +221,7 @@ jobs:
           coscmd config -a ${{ secrets.TENCENT_SECRET_ID }} \
             -s ${{ secrets.TENCENT_SECRET_KEY }} \
             -b "$COS_BUCKET" \
-            -r "$COS_REGION" \
+            -e "$COS_ENDPOINT" \
             -m "$COS_THREAD_NUM" \
             -p "$COS_PART_SIZE" \
             --retry "$COS_RETRY" \
@@ -282,7 +286,7 @@ jobs:
           coscmd config -a ${{ secrets.TENCENT_SECRET_ID }} \
             -s ${{ secrets.TENCENT_SECRET_KEY }} \
             -b "$COS_BUCKET" \
-            -r "$COS_REGION"
+            -e "$COS_ENDPOINT"
 
       - name: Upload CHANGELOG.md to COS
         if: steps.check-secrets.outputs.available == 'true'
@@ -326,7 +330,7 @@ jobs:
           coscmd config -a ${{ secrets.TENCENT_SECRET_ID }} \
             -s ${{ secrets.TENCENT_SECRET_KEY }} \
             -b "$COS_BUCKET" \
-            -r "$COS_REGION" \
+            -e "$COS_ENDPOINT" \
             -m "$COS_THREAD_NUM" \
             -p "$COS_PART_SIZE" \
             --retry "$COS_RETRY" \
@@ -393,7 +397,7 @@ jobs:
           coscmd config -a ${{ secrets.TENCENT_SECRET_ID }} \
             -s ${{ secrets.TENCENT_SECRET_KEY }} \
             -b "$COS_BUCKET" \
-            -r "$COS_REGION"
+            -e "$COS_ENDPOINT"
 
       - name: Upload latest.yml to COS
         if: steps.check-secrets.outputs.available == 'true'
