@@ -11,6 +11,11 @@ permissions:
 
 jobs:
   release-pr:
+    # 跳过「合并 Release PR」产生的 push：该 push 与 release-tag.yml 同时触发，
+    # 此时新 tag/Release 尚未创建，release-please 找不到上个版本落点会全量重扫
+    # 历史 commit，凭空生成内容重复的下一版本 PR（如 3.1.0/3.2.0 事故）。
+    # 跳过后无副作用：下一个真实 commit 推送时会基于已存在的 tag 正确重算。
+    if: ${{ !contains(github.event.head_commit.message, 'release-please--branches') }}
     runs-on: ubuntu-latest
     steps:
       - uses: googleapis/release-please-action@v5
