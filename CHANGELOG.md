@@ -8,6 +8,13 @@
 
 
 
+## [3.3.0](https://github.com/enncy/ocs-desktop-test/compare/v3.2.0...v3.3.0) (2026-09-14)
+
+
+### ✨ Features
+
+* 添加更新功能验证测试文件 ([846c2a9](https://github.com/enncy/ocs-desktop-test/commit/846c2a90356ae9bb3cafe6209c4792c412d7e65d))
+
 ## [3.2.0](https://github.com/enncy/ocs-desktop-test/compare/v3.1.0...v3.2.0) (2026-09-14)
 
 
