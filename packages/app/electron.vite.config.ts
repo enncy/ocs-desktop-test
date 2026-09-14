@@ -16,7 +16,9 @@ const commonAlias = [
 
 export default defineConfig({
 	main: {
-		plugins: [externalizeDepsPlugin()],
+		// common 必须排除出外部化：否则 alias 不生效，产物保留 require('@ocs-desktop/common')，
+		// 运行时去 node_modules 找 lib/index.js（tsc 产物，构建链不产出）导致启动崩溃
+		plugins: [externalizeDepsPlugin({ exclude: ['@ocs-desktop/common'] })],
 		resolve: {
 			alias: commonAlias
 		},
